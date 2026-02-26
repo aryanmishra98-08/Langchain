@@ -10,7 +10,8 @@ Each session includes practical examples, clean implementations, and a detailed 
 
 | Session | Topic | Status |
 |---------|-------|--------|
-| Session 1 | LangChain Foundations | ✅ In Progress |
+| Session 1 | LangChain Foundations | ✅ Completed |
+| Session 2 | RAG with LangChain  | ⏳ In Progress |
 
 ---
 
@@ -25,7 +26,6 @@ A complete beginner's guide covering everything you need to go from zero to buil
 - Prompt Templates (basic to advanced)
 - Building Chains with LCEL
 - Conversational Memory
-- 7 practice examples
 - Mini-project: Personal Assistant Chatbot
 
 ---
