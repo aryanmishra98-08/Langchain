@@ -2,8 +2,6 @@
 
 A structured, example-driven repository for learning [LangChain](https://www.langchain.com/) — the leading open-source framework for building applications powered by large language models. Each example builds on the last, taking you from your first LLM call to a production-ready conversational chatbot.
 
-**License:** Apache 2.0
-
 ---
 
 ## Philosophy
@@ -13,7 +11,6 @@ LangChain is powerful, but its breadth can be overwhelming for newcomers. This r
 - **Learn by doing.** Every concept is a standalone Python script you can run, modify, and experiment with immediately.
 - **Progressive complexity.** Examples are numbered sequentially — each one introduces exactly one new idea on top of what you already know.
 - **Production awareness.** The journey doesn't stop at "hello world." The final examples cover persistent storage, session management, and memory optimization patterns used in real deployments.
-- **Modern idioms.** All code uses the current LangChain API surface (`langchain-core`, LCEL, `RunnableWithMessageHistory`) rather than deprecated legacy classes.
 
 ---
 
@@ -38,15 +35,17 @@ LangChain is powerful, but its breadth can be overwhelming for newcomers. This r
 
 ### Prerequisites
 
-- Python 3.9 or later
-- An API key from a supported LLM provider (Azure OpenAI, OpenAI, or Anthropic)
+- Python 3.11 or later
+- An API key from a supported LLM provider (Azure OpenAI, OpenAI, or Anthropic) — this guide uses Azure OpenAI by default, but you can easily swap in another provider by changing the model class and credentials.
 
 ### 1. Clone and install dependencies
 
 ```bash
 git clone <repository-url>
 cd Langchain
-pip install -r requirement.txt
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
+pip install -r requirements.txt
 ```
 
 ### 2. Configure your API key
@@ -54,7 +53,7 @@ pip install -r requirement.txt
 Create a `keys/.env` file with your credentials:
 
 ```env
-# Azure OpenAI (used by default in the examples)
+# Azure OpenAI Credentials
 AZURE_OPENAI_API_KEY=your-key-here
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_VERSION=2024-02-01
@@ -1196,43 +1195,6 @@ python "examples/<filename>.py"
 ```
 
 All examples load environment variables from `keys/.env` automatically.
-
----
-
-## Memory Storage Comparison
-
-| Storage Backend | Best For | Persistence | Setup Complexity |
-|----------------|----------|-------------|------------------|
-| `InMemoryChatMessageHistory` | Development and testing | None (lost on restart) | None |
-| `SQLChatMessageHistory` | Small-to-medium production apps | Disk (SQLite/PostgreSQL) | Low |
-| `RedisChatMessageHistory` | High-traffic production apps | In-memory + optional disk | Medium (requires Redis) |
-| Window Memory (custom) | Long conversations with bounded token cost | Depends on backing store | Low |
-| Summary Memory (custom) | Very long conversations requiring full context | Depends on backing store | Medium |
-
----
-
-## Migrating from Legacy APIs
-
-If you have existing code using deprecated LangChain classes, here is the modern equivalent:
-
-| Deprecated | Modern Replacement |
-|-----------|-------------------|
-| `ConversationChain` | LCEL chain (`prompt \| model \| parser`) |
-| `ConversationBufferMemory` | `InMemoryChatMessageHistory` + `RunnableWithMessageHistory` |
-| `conversation.predict(input=...)` | `chain.invoke({"input": ...}, config=...)` |
-| `LLMChain` | LCEL chain with `StrOutputParser` |
-
-See Examples 15–21 for complete modern implementations of every memory pattern.
-
----
-
-## Additional Resources
-
-- [LangChain Documentation](https://python.langchain.com/docs/introduction/)
-- [LangChain Expression Language (LCEL) Guide](https://python.langchain.com/docs/concepts/lcel/)
-- [Chat History & Memory](https://python.langchain.com/docs/concepts/chat_history/)
-- [LangSmith](https://smith.langchain.com/) — Observability and tracing for LangChain applications
-- [LangChain GitHub](https://github.com/langchain-ai/langchain)
 
 ---
 
