@@ -10,7 +10,7 @@ Each session includes practical examples, clean implementations, and a detailed 
 
 | Session | Topic | Status |
 |---------|-------|--------|
-| Session 1 | LangChain Foundations | ✅ In Pgrogress |
+| Session 1 | LangChain Foundations | ✅ In Progress |
 
 ---
 
