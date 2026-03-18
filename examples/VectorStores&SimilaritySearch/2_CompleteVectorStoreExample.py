@@ -1,3 +1,4 @@
+from pathlib import Path
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import TextLoader
@@ -64,6 +65,10 @@ class DocumentVectorStore:
         elif method == "similarity_score":
             return self.vectorstore.similarity_search_with_score(query, k=k)
 
+        raise ValueError(
+            "Invalid search method. Use 'similarity', 'mmr', or 'similarity_score'."
+        )
+
     def add_documents(self, documents: list):
         """
         Add new documents to existing vector store
@@ -91,7 +96,7 @@ if __name__ == "__main__":
     vs.create_from_documents(documents)
 
     # Search
-    query = "What are the main findings?"
+    query = "What were the main causes of the French Revolution?"
     results = vs.search(query, k=3)
 
     for i, doc in enumerate(results):

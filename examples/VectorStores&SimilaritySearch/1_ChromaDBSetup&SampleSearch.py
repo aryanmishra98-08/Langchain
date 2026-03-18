@@ -1,6 +1,23 @@
+from pathlib import Path
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
+
+
+# Load a single text file
+base_dir = Path(__file__).resolve().parents[1]
+file_path = base_dir / "data" / "TheFrenchRevolution.txt"
+loader = TextLoader(str(file_path), encoding="utf-8")
+documents = loader.load()
+
+# Split into retrieval-friendly chunks
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+)
+chunks = text_splitter.split_documents(documents)
 
 # Initialize embeddings
 embeddings = OpenAIEmbeddings(
@@ -13,7 +30,7 @@ vectorstore = Chroma.from_documents(
     documents=chunks,
     embedding=embeddings,
     persist_directory="./chroma_db",  # Persist to disk
-    collection_name="my_documents"
+    collection_name="the_french_revolution"
 )
 
 print(
@@ -21,7 +38,7 @@ print(
 
 # Similarity Search
 # Basic similarity search
-query = "What is machine learning?"
+query = "What caused the French Revolution?"
 results = vectorstore.similarity_search(
     query,
     k=3  # Return top 3 most similar documents
@@ -36,7 +53,7 @@ for i, doc in enumerate(results):
 
 # Similarity Search with Scores
 # Get similarity scores
-query = "Explain neural networks"
+query = "What happened during the Reign of Terror?"
 results_with_scores = vectorstore.similarity_search_with_score(
     query,
     k=3
