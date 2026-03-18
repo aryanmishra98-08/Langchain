@@ -1863,10 +1863,10 @@ pip install python-magic
 ## Additional Resources
 
 ### Official Documentation
-- [LangChain RAG Tutorial](https://python.langchain.com/docs/tutorials/rag/)
-- [LangChain Concepts](https://python.langchain.com/docs/concepts/#retrieval-augmented-generation)
-- [Vector Stores](https://python.langchain.com/docs/integrations/vectorstores/)
-- [Retrievers](https://python.langchain.com/docs/concepts/#retrievers)
+- [LangChain RAG Tutorial](https://docs.langchain.com/oss/python/langchain/retrieval)
+- [LangChain Concepts](https://docs.langchain.com/oss/python/langchain/overview)
+- [Vector Stores](https://docs.langchain.com/oss/python/integrations/vectorstores)
+- [Retrievers](https://docs.langchain.com/oss/python/integrations/retrievers)
 
 ### Best Practices
 1. **Chunking:** Start with 1000 chars, 200 overlap
@@ -1917,4 +1917,7 @@ You've now learned:
 
 ---
 
-**Happy Learning! 🚀**
+<p align="center">
+  Built for learning. Designed for production readiness.<br>
+  Licensed under Apache 2.0.
+</p>
