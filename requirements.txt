@@ -1,0 +1,17 @@
+# Core dependencies
+langchain 
+langchain-community 
+langchain-openai
+langchain-experimental
+chromadb 
+tiktoken
+
+# Document loaders
+pypdf 
+python-docx 
+unstructured
+beautifulsoup4 
+lxml
+
+# Additional utilities
+python-dotenv
