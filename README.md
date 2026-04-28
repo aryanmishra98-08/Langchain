@@ -27,12 +27,17 @@
 ```
 Langchain/
 ├── README.md
+├── LICENSE
+├── .gitignore
 ├── requirements.txt
-├── keys/                              # API key storage
+├── keys/
+│   └── .env                           # Azure OpenAI credentials (loaded by every example)
 ├── myenv/                             # Python 3.11 virtual environment
 ├── examples/
 │   ├── data/
-│   │   └── TheFrenchRevolution.txt    # Sample dataset
+│   │   ├── TheFrenchRevolution.txt    # Sample dataset (text)
+│   │   ├── TheFrenchRevolution.pdf    # Sample dataset (PDF)
+│   │   └── TheFrenchRevolution.docx   # Sample dataset (Word)
 │   ├── DocumentLoading&Processing/    # Section 3 examples
 │   │   ├── 1_TextLoader.py
 │   │   ├── 2_PDFLoader.py
@@ -57,9 +62,13 @@ Langchain/
 │   └── CompleteRAGImplementation.py   # Section 8 full project
 ```
 
+> **Sample data:** The repo ships with `TheFrenchRevolution.{txt,pdf,docx}` so every example runs out of the box once your `keys/.env` is configured.
+
 ---
 
 ## Setup
+
+This project uses **Azure OpenAI** for both chat completion and embeddings. You'll need an Azure OpenAI resource with deployments for a chat model (e.g. `gpt-4o`) and an embeddings model (e.g. `text-embedding-3-small`).
 
 ```bash
 # 1. Create and activate virtual environment
@@ -69,9 +78,22 @@ source myenv/bin/activate
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Set your OpenAI API key (create a .env file or export directly)
-export OPENAI_API_KEY="your-api-key-here"
+# 3. Create keys/.env with your Azure OpenAI credentials
+mkdir -p keys
+cat > keys/.env <<'EOF'
+AZURE_OPENAI_API_KEY=your-azure-openai-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+OPENAI_API_VERSION=2024-10-21
+AZURE_OPENAI_CHAT_DEPLOYMENT=your-chat-deployment-name
+AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=your-embeddings-deployment-name
+EOF
 ```
+
+Every example loads this file via `load_dotenv(dotenv_path=… / "keys" / ".env")`, so the credentials only need to live in one place.
+
+### Configuration blocks
+
+Each example script has a clearly marked `# ── CONFIGURATION ──` block at the top with editable constants (data file path, chunk size, demo queries, etc.). To adapt an example to your own use case, edit those constants — you generally don't need to touch the rest of the file.
 
 ---
 
@@ -198,9 +220,11 @@ High-dimensional space (simplified to 2D):
 ### 2.3 Embedding Models
 
 **Popular Options:**
-- **OpenAI**: `text-embedding-ada-002` (1536 dims)
+- **Azure OpenAI / OpenAI**: `text-embedding-3-small` (1536 dims), `text-embedding-3-large` (3072 dims). Legacy: `text-embedding-ada-002` (1536 dims).
 - **HuggingFace**: `sentence-transformers/all-MiniLM-L6-v2` (384 dims)
 - **Cohere**: `embed-english-v3.0`
+
+> On Azure OpenAI you reference embedding models by **deployment name**, not model name. The examples in this repo read the deployment name from `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`.
 
 **Cost vs Performance:**
 - Larger dimensions = Better accuracy, Higher cost
@@ -214,30 +238,45 @@ High-dimensional space (simplified to 2D):
 
 ### 3.1 Setup & Installation
 
+All dependencies are pinned in [requirements.txt](requirements.txt) and installed in one step:
+
 ```bash
-# Core dependencies
-pip install langchain langchain-community langchain-openai
-pip install chromadb tiktoken
+pip install -r requirements.txt
+```
+
+That installs:
+
+```
+# Core LangChain (v1.x)
+langchain, langchain-classic, langchain-community, langchain-core
+langchain-openai, langchain-chroma, langchain-text-splitters, langchain-experimental
+
+# Vector store backend
+chromadb
+
+# Tokenization
+tiktoken
 
 # Document loaders
-pip install pypdf python-docx unstructured
-pip install beautifulsoup4 lxml
+pypdf, beautifulsoup4
 
-# Additional utilities
-pip install python-dotenv
+# Utilities
+python-dotenv
 ```
 
 ### 3.2 Loading Different Document Types
 
 #### 3.2.1 Text Files
 
-> See: `examples/DocumentLoading&Processing/1_TextLoader.py`
+> See: [examples/DocumentLoading&Processing/1_TextLoader.py](examples/DocumentLoading&Processing/1_TextLoader.py)
 
 ```python
+from pathlib import Path
 from langchain_community.document_loaders import TextLoader
 
-# Load a single text file
-loader = TextLoader("data/document.txt", encoding="utf-8")
+DATA_FILE = Path("examples/data/TheFrenchRevolution.txt")
+
+loader = TextLoader(str(DATA_FILE), encoding="utf-8")
 documents = loader.load()
 
 print(f"Loaded {len(documents)} document(s)")
@@ -247,13 +286,13 @@ print(f"Metadata: {documents[0].metadata}")
 
 #### 3.2.2 PDF Documents
 
-> See: `examples/DocumentLoading&Processing/2_PDFLoader.py`
+> See: [examples/DocumentLoading&Processing/2_PDFLoader.py](examples/DocumentLoading&Processing/2_PDFLoader.py)
 
 ```python
 from langchain_community.document_loaders import PyPDFLoader
 
 # Load PDF with page-level granularity
-loader = PyPDFLoader("data/research_paper.pdf")
+loader = PyPDFLoader("examples/data/TheFrenchRevolution.pdf")
 pages = loader.load()
 
 print(f"Total pages: {len(pages)}")
@@ -265,12 +304,11 @@ for i, page in enumerate(pages[:3]):
 
 #### 3.2.3 Web Pages
 
-> See: `examples/DocumentLoading&Processing/3_WebUrlLoader.py`
+> See: [examples/DocumentLoading&Processing/3_WebUrlLoader.py](examples/DocumentLoading&Processing/3_WebUrlLoader.py)
 
 ```python
 from langchain_community.document_loaders import WebBaseLoader
 
-# Load from URL
 loader = WebBaseLoader([
     "https://python.langchain.com/docs/tutorials/rag/",
     "https://python.langchain.com/docs/concepts/",
@@ -282,17 +320,16 @@ print(f"Loaded {len(docs)} web page(s)")
 
 #### 3.2.4 Directory Loader (Multiple Files)
 
-> See: `examples/DocumentLoading&Processing/4_DirectoryLoader.py`
+> See: [examples/DocumentLoading&Processing/4_DirectoryLoader.py](examples/DocumentLoading&Processing/4_DirectoryLoader.py)
 
 ```python
 from langchain_community.document_loaders import DirectoryLoader
 
-# Load all text files from directory
 loader = DirectoryLoader(
-    "data/documents/",
-    glob="**/*.txt",
+    "examples/data",
+    glob="*.txt",
     show_progress=True,
-    use_multithreading=True
+    use_multithreading=True,
 )
 docs = loader.load()
 
@@ -301,10 +338,10 @@ print(f"Loaded {len(docs)} documents from directory")
 
 ### 3.3 Complete Loading Example
 
-> See: `examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py`
+> See: [examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py](examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py)
 
 ```python
-import os
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_community.document_loaders import (
     PyPDFLoader,
@@ -312,43 +349,35 @@ from langchain_community.document_loaders import (
     DirectoryLoader,
 )
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 
-def load_documents(source_dir: str) -> list:
-    """
-    Load documents from multiple sources
-    """
+
+def load_documents(source_dir) -> list:
+    """Load PDFs and text files from a directory."""
     all_docs = []
-    
-    # Load PDFs
+
     pdf_loader = DirectoryLoader(
         source_dir,
-        glob="**/*.pdf",
+        glob="*.pdf",
         loader_cls=PyPDFLoader,
-        show_progress=True
+        show_progress=True,
     )
-    pdf_docs = pdf_loader.load()
-    all_docs.extend(pdf_docs)
-    
-    # Load text files
+    all_docs.extend(pdf_loader.load())
+
     txt_loader = DirectoryLoader(
         source_dir,
-        glob="**/*.txt",
+        glob="*.txt",
         loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8"},
-        show_progress=True
+        show_progress=True,
     )
-    txt_docs = txt_loader.load()
-    all_docs.extend(txt_docs)
-    
-    print(f"✓ Loaded {len(pdf_docs)} PDFs")
-    print(f"✓ Loaded {len(txt_docs)} text files")
+    all_docs.extend(txt_loader.load())
+
     print(f"✓ Total documents: {len(all_docs)}")
-    
     return all_docs
 
-# Usage
-documents = load_documents("./data")
+
+documents = load_documents(Path(__file__).resolve().parents[1] / "data")
 ```
 
 ---
@@ -371,10 +400,10 @@ documents = load_documents("./data")
 
 ### 4.2 Chunking Strategies Compared
 
-> See: `examples/TextChunkingStrategies/1_Chunking.py`
+> See: [examples/TextChunkingStrategies/1_Chunking.py](examples/TextChunkingStrategies/1_Chunking.py)
 
 ```python
-from langchain.text_splitter import (
+from langchain_text_splitters import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
     TokenTextSplitter,
@@ -423,10 +452,10 @@ print("Token-based chunks:", len(token_chunks))
 
 ### 4.3 Optimal Chunking Parameters
 
-> See: `examples/TextChunkingStrategies/2_OptimalChunkingParameters.py`
+> See: [examples/TextChunkingStrategies/2_OptimalChunkingParameters.py](examples/TextChunkingStrategies/2_OptimalChunkingParameters.py)
 
 ```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 def create_optimized_splitter(use_case: str):
     """
@@ -469,16 +498,19 @@ print(f"Created {len(chunks)} chunks")
 
 ### 4.4 Advanced: Semantic Chunking
 
-> See: `examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py`
+> See: [examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py](examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py)
 
 ```python
+import os
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 
 # Split based on semantic similarity
 semantic_splitter = SemanticChunker(
-    OpenAIEmbeddings(),
-    breakpoint_threshold_type="percentile",  # or "standard_deviation"
+    AzureOpenAIEmbeddings(
+        azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+    ),
+    breakpoint_threshold_type="percentile",  # also: "standard_deviation", "interquartile", "gradient"
     breakpoint_threshold_amount=95,
 )
 
@@ -488,22 +520,19 @@ print(f"Semantic chunks: {len(semantic_chunks)}")
 
 ### 4.5 Practical Chunking Example
 
-> See: `examples/TextChunkingStrategies/4_PracticalChunkingExample.py`
+> See: [examples/TextChunkingStrategies/4_PracticalChunkingExample.py](examples/TextChunkingStrategies/4_PracticalChunkingExample.py)
 
 ```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import TextLoader
+
 
 def process_documents(file_path: str):
-    """
-    Complete document processing pipeline
-    """
-    # 1. Load document
-    loader = PyPDFLoader(file_path)
+    """Load → split → inspect."""
+    loader = TextLoader(file_path, encoding="utf-8")
     documents = loader.load()
     print(f"Loaded {len(documents)} pages")
-    
-    # 2. Split into chunks
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
@@ -512,18 +541,17 @@ def process_documents(file_path: str):
     )
     chunks = text_splitter.split_documents(documents)
     print(f"Split into {len(chunks)} chunks")
-    
-    # 3. Inspect chunks
+
     for i, chunk in enumerate(chunks[:3]):
         print(f"\n--- Chunk {i+1} ---")
         print(f"Length: {len(chunk.page_content)}")
         print(f"Preview: {chunk.page_content[:150]}...")
         print(f"Metadata: {chunk.metadata}")
-    
+
     return chunks
 
-# Usage
-chunks = process_documents("data/document.pdf")
+
+chunks = process_documents("examples/data/TheFrenchRevolution.txt")
 ```
 
 ---
@@ -544,39 +572,33 @@ chunks = process_documents("data/document.pdf")
 
 ### 5.2 Chroma DB Setup (Recommended for Learning)
 
-> See: `examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py`
+> See: [examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py](examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py)
 
 ```python
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
 import os
+from langchain_openai import AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
 
-# Initialize embeddings
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-ada-002",
-    openai_api_key=os.getenv("OPENAI_API_KEY")
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
 )
 
-# Create vector store from documents
 vectorstore = Chroma.from_documents(
     documents=chunks,
     embedding=embeddings,
     persist_directory="./chroma_db",
-    collection_name="my_documents"
+    collection_name="the_french_revolution",
 )
 
-print(f"✓ Created vector store with {vectorstore._collection.count()} documents")
+doc_count = len(vectorstore.get()["ids"])
+print(f"✓ Created vector store with {doc_count} documents")
 ```
 
 ### 5.3 Similarity Search
 
 ```python
-# Basic similarity search
-query = "What is machine learning?"
-results = vectorstore.similarity_search(
-    query,
-    k=3  # Return top 3 most similar documents
-)
+query = "What caused the French Revolution?"
+results = vectorstore.similarity_search(query, k=3)
 
 print(f"Found {len(results)} relevant documents:\n")
 for i, doc in enumerate(results):
@@ -588,14 +610,9 @@ for i, doc in enumerate(results):
 ### 5.4 Similarity Search with Scores
 
 ```python
-# Get similarity scores
-query = "Explain neural networks"
-results_with_scores = vectorstore.similarity_search_with_score(
-    query,
-    k=3
-)
+query = "What happened during the Reign of Terror?"
+results_with_scores = vectorstore.similarity_search_with_score(query, k=3)
 
-print("Results with similarity scores:\n")
 for doc, score in results_with_scores:
     print(f"Score: {score:.4f}")
     print(f"Content: {doc.page_content[:150]}...")
@@ -618,78 +635,76 @@ print(f"MMR returned {len(results_mmr)} diverse results")
 
 ### 5.6 Complete Vector Store Example
 
-> See: `examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py`
+> See: [examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py](examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py)
 
 ```python
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
+from typing import List
 from dotenv import load_dotenv
+
+from langchain_core.documents import Document
+from langchain_openai import AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
+
 class DocumentVectorStore:
-    """
-    Manages document vectorization and retrieval
-    """
-    
+    """Manages document vectorization and retrieval."""
+
     def __init__(self, persist_directory: str = "./chroma_db"):
         self.persist_directory = persist_directory
-        self.embeddings = OpenAIEmbeddings()
-        self.vectorstore = None
-    
-    def create_from_documents(self, documents: list):
+        self.embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+        )
+        self.vectorstore: Chroma | None = None
+
+    def create_from_documents(self, documents: List[Document]) -> Chroma:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
-            chunk_overlap=200
+            chunk_overlap=200,
         )
         chunks = text_splitter.split_documents(documents)
-        
+
         self.vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=self.embeddings,
-            persist_directory=self.persist_directory
+            persist_directory=self.persist_directory,
         )
         print(f"✓ Vector store created with {len(chunks)} chunks")
         return self.vectorstore
-    
-    def load_existing(self):
+
+    def load_existing(self) -> Chroma:
         self.vectorstore = Chroma(
             persist_directory=self.persist_directory,
-            embedding_function=self.embeddings
+            embedding_function=self.embeddings,
         )
         return self.vectorstore
-    
+
     def search(self, query: str, k: int = 3, method: str = "similarity"):
+        if not self.vectorstore:
+            raise ValueError("Vector store not initialized")
         if method == "similarity":
             return self.vectorstore.similarity_search(query, k=k)
-        elif method == "mmr":
+        if method == "mmr":
             return self.vectorstore.max_marginal_relevance_search(
-                query, k=k, fetch_k=k*5
+                query, k=k, fetch_k=k * 5
             )
-        elif method == "similarity_score":
+        if method == "similarity_score":
             return self.vectorstore.similarity_search_with_score(query, k=k)
-    
-    def add_documents(self, documents: list):
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200
-        )
-        chunks = text_splitter.split_documents(documents)
-        self.vectorstore.add_documents(chunks)
-        print(f"✓ Added {len(chunks)} new chunks")
+        raise ValueError("Use 'similarity', 'mmr', or 'similarity_score'.")
 
-# Usage
+
 if __name__ == "__main__":
-    loader = PyPDFLoader("data/document.pdf")
+    loader = TextLoader("examples/data/TheFrenchRevolution.txt", encoding="utf-8")
     docs = loader.load()
-    
+
     vs = DocumentVectorStore()
     vs.create_from_documents(docs)
-    
-    results = vs.search("What are the main findings?", k=3)
+
+    results = vs.search("What were the main causes of the French Revolution?", k=3)
     for i, doc in enumerate(results):
         print(f"\n--- Result {i+1} ---")
         print(doc.page_content[:200])
@@ -701,60 +716,78 @@ if __name__ == "__main__":
 
 > **Examples:** `examples/BuildingRAGPipelines/`
 
-### 6.1 Basic RAG Chain (Legacy)
+### 6.1 Basic RAG Chain
 
-> See: `examples/BuildingRAGPipelines/1_BasicRAGChain.py`
+> See: [examples/BuildingRAGPipelines/1_BasicRAGChain.py](examples/BuildingRAGPipelines/1_BasicRAGChain.py)
+
+LangChain v1.x replaces the legacy `RetrievalQA` class with composable building blocks: `create_stuff_documents_chain` for the answer step and `create_retrieval_chain` to wire retrieval into it.
 
 ```python
-from langchain.chains import RetrievalQA
-from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+import os
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 
-# Initialize components
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-embeddings = OpenAIEmbeddings()
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
+)
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+)
 
 vectorstore = Chroma(
     persist_directory="./chroma_db",
-    embedding_function=embeddings
+    embedding_function=embeddings,
 )
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-retriever = vectorstore.as_retriever(
-    search_type="similarity",
-    search_kwargs={"k": 3}
+system_prompt = (
+    "Use the given context to answer the question. "
+    "If you don't know the answer, say you don't know. "
+    "Keep the answer concise.\n\n"
+    "Context: {context}"
 )
+prompt = ChatPromptTemplate.from_messages([
+    ("system", system_prompt),
+    ("human", "{input}"),
+])
 
-# Create RAG chain
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    chain_type="stuff",  # "stuff", "map_reduce", "refine", "map_rerank"
-    retriever=retriever,
-    return_source_documents=True,
-    verbose=True
-)
+question_answer_chain = create_stuff_documents_chain(llm, prompt)
+rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
-# Query
-result = qa_chain({"query": "What is the main topic of the document?"})
-print("Answer:", result["result"])
+result = rag_chain.invoke({"input": "What is the main topic of the document?"})
+print("Answer:", result["answer"])
+for doc in result["context"]:
+    print(f"- {doc.metadata.get('source', 'Unknown')}")
 ```
 
-### 6.2 Modern RAG with LCEL (Recommended)
+### 6.2 Modern RAG with LCEL
 
-> See: `examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py`
+> See: [examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py](examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py)
+
+For maximum control, build the chain by hand with LCEL primitives.
 
 ```python
+import os
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
 
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-embeddings = OpenAIEmbeddings()
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
+)
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+)
 vectorstore = Chroma(
     persist_directory="./chroma_db",
-    embedding_function=embeddings
+    embedding_function=embeddings,
 )
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
@@ -770,43 +803,48 @@ in the context, say "I cannot find this information in the provided documents."
 
 prompt = ChatPromptTemplate.from_template(template)
 
+
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-# Build RAG chain using LCEL
+
 rag_chain = (
     {
         "context": retriever | format_docs,
-        "question": RunnablePassthrough()
+        "question": RunnablePassthrough(),
     }
     | prompt
     | llm
     | StrOutputParser()
 )
 
-response = rag_chain.invoke("What is machine learning?")
+response = rag_chain.invoke("What were the main causes of the French Revolution?")
 print(response)
 ```
 
 ### 6.3 RAG with Source Citations
 
-> See: `examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py`
+> See: [examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py](examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py)
 
 ```python
+import os
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_core.runnables import RunnablePassthrough
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
 
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-embeddings = OpenAIEmbeddings()
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
 )
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+)
+vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-template = """Answer the question based on the following context. 
+template = """Answer the question based on the following context.
 After your answer, list the sources you used with their page numbers.
 
 Context:
@@ -824,21 +862,22 @@ Sources:
 
 prompt = ChatPromptTemplate.from_template(template)
 
+
 def format_docs_with_sources(docs):
-    """Format documents with source information"""
     formatted = []
     for i, doc in enumerate(docs):
-        source = doc.metadata.get('source', 'Unknown')
-        page = doc.metadata.get('page', 'N/A')
+        source = doc.metadata.get("source", "Unknown")
+        page = doc.metadata.get("page", "N/A")
         formatted.append(
             f"[Document {i+1}] (Source: {source}, Page: {page})\n{doc.page_content}"
         )
     return "\n\n".join(formatted)
 
+
 rag_chain_with_sources = (
     {
         "context": retriever | format_docs_with_sources,
-        "question": RunnablePassthrough()
+        "question": RunnablePassthrough(),
     }
     | prompt
     | llm
@@ -851,124 +890,158 @@ print(response)
 
 ### 6.4 Multi-Query RAG (Advanced)
 
-> See: `examples/BuildingRAGPipelines/4_MultiQueryRAG.py`
+> See: [examples/BuildingRAGPipelines/4_MultiQueryRAG.py](examples/BuildingRAGPipelines/4_MultiQueryRAG.py)
 
 ```python
-from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+import os
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-embeddings = OpenAIEmbeddings()
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
 )
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+)
+vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 base_retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
 
-# Multi-query retriever generates multiple search queries
+# Multi-query retriever generates several search queries from one user query
 multi_query_retriever = MultiQueryRetriever.from_llm(
     retriever=base_retriever,
-    llm=llm
+    llm=llm,
 )
 
-# Single user query generates multiple searches
-question = "What are the benefits of machine learning?"
-unique_docs = multi_query_retriever.get_relevant_documents(query=question)
-
+unique_docs = multi_query_retriever.invoke(
+    "What were the main causes of the French Revolution?"
+)
 print(f"Retrieved {len(unique_docs)} unique documents")
 ```
 
 ### 6.5 Conversational RAG (With Memory)
 
-> See: `examples/BuildingRAGPipelines/5_ConversationalRAG.py`
+> See: [examples/BuildingRAGPipelines/5_ConversationalRAG.py](examples/BuildingRAGPipelines/5_ConversationalRAG.py)
+
+The legacy `ConversationalRetrievalChain` + `ConversationBufferMemory` API is replaced in v1.x by **`create_history_aware_retriever`**, which rewrites follow-up questions into standalone queries before retrieval. Chat history is kept as a plain list of `HumanMessage`/`AIMessage`.
 
 ```python
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
-
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-embeddings = OpenAIEmbeddings()
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings
+import os
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_classic.chains import (
+    create_history_aware_retriever,
+    create_retrieval_chain,
 )
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
+)
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+)
+vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 retriever = vectorstore.as_retriever()
 
-memory = ConversationBufferMemory(
-    memory_key="chat_history",
-    return_messages=True,
-    output_key="answer"
+# Step 1 — rewrite the latest question into a standalone query using chat history
+contextualize_q_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "Given a chat history and the latest user question which might reference "
+     "context in the chat history, formulate a standalone question which can be "
+     "understood without the chat history. Do NOT answer the question, just "
+     "reformulate it if needed; otherwise return it as is."),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+history_aware_retriever = create_history_aware_retriever(
+    llm, retriever, contextualize_q_prompt
 )
 
-conversational_chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=retriever,
-    memory=memory,
-    return_source_documents=True,
-    verbose=True
-)
+# Step 2 — answer using retrieved context + chat history
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "You are an assistant for question-answering tasks. "
+     "Use the following pieces of retrieved context to answer the question. "
+     "If you don't know the answer, just say that you don't know. "
+     "Keep the answer concise.\n\n"
+     "Context: {context}"),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-# Multi-turn conversation
+# Multi-turn conversation — chat history is just a list
+chat_history = []
 queries = [
-    "What is machine learning?",
-    "What are its main applications?",
-    "Can you explain more about the first application?"
+    "What were the main causes of the French Revolution?",
+    "What were the major events during the Revolution?",   # uses prior context
+    "Can you explain more about the first event?",         # references prior answer
 ]
 
 for query in queries:
     print(f"\nUser: {query}")
-    result = conversational_chain({"question": query})
-    print(f"Assistant: {result['answer']}")
+    result = rag_chain.invoke({"input": query, "chat_history": chat_history})
+    answer = result["answer"]
+    print(f"Assistant: {answer}")
+    chat_history.extend([
+        HumanMessage(content=query),
+        AIMessage(content=answer),
+    ])
 ```
 
 ### 6.6 Complete Production-Ready RAG System
 
-> See: `examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py`
+> See: [examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py](examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py)
+
+This pattern uses `RunnableParallel` + `.assign()` so retrieval runs once per query and both the answer and source documents come back in a single pass.
 
 ```python
+import os
+from typing import List, Dict, Any
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from typing import List, Dict
-import os
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from langchain_core.callbacks import StreamingStdOutCallbackHandler
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_chroma import Chroma
+
 
 class ProductionRAGSystem:
-    """
-    Production-ready RAG system with best practices
-    """
-    
+    """Production-ready RAG system with best practices."""
+
     def __init__(
         self,
         persist_directory: str = "./chroma_db",
-        model: str = "gpt-4",
-        temperature: float = 0,
-        k: int = 4
+        temperature: float = 0.0,
+        k: int = 4,
+        streaming: bool = True,
     ):
-        self.embeddings = OpenAIEmbeddings()
-        self.llm = ChatOpenAI(
-            model=model,
+        self.embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+        )
+        self.llm = AzureChatOpenAI(
+            azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
             temperature=temperature,
-            streaming=True,
-            callbacks=[StreamingStdOutCallbackHandler()]
+            streaming=streaming,
+            callbacks=[StreamingStdOutCallbackHandler()] if streaming else None,
         )
         self.vectorstore = Chroma(
             persist_directory=persist_directory,
-            embedding_function=self.embeddings
+            embedding_function=self.embeddings,
         )
         self.retriever = self.vectorstore.as_retriever(
             search_type="mmr",
-            search_kwargs={"k": k, "fetch_k": k * 3}
+            search_kwargs={"k": k, "fetch_k": k * 3},
         )
         self.chain = self._build_chain()
-    
+
     def _build_chain(self):
         template = """You are a helpful AI assistant. Answer the question based on the provided context.
 
@@ -984,49 +1057,47 @@ Instructions:
 4. Be concise but thorough
 
 Answer:"""
-        
+
         prompt = ChatPromptTemplate.from_template(template)
-        
+
         def format_docs(docs):
             return "\n\n".join(
                 f"[Source {i+1}]\n{doc.page_content}"
                 for i, doc in enumerate(docs)
             )
-        
-        return (
+
+        answer_chain = prompt | self.llm | StrOutputParser()
+
+        # Retrieve once, then run the answer chain alongside the source docs.
+        return RunnableParallel(
             {
-                "context": self.retriever | format_docs,
-                "question": RunnablePassthrough()
+                "source_documents": self.retriever,
+                "question": RunnablePassthrough(),
             }
-            | prompt
-            | self.llm
-            | StrOutputParser()
+        ).assign(
+            answer=lambda x: answer_chain.invoke(
+                {"context": format_docs(x["source_documents"]), "question": x["question"]}
+            )
         )
-    
-    def query(self, question: str) -> Dict[str, any]:
-        relevant_docs = self.retriever.get_relevant_documents(question)
-        answer = self.chain.invoke(question)
-        
+
+    def query(self, question: str) -> Dict[str, Any]:
+        result = self.chain.invoke(question)
         return {
-            "answer": answer,
+            "answer": result["answer"],
             "source_documents": [
-                {
-                    "content": doc.page_content[:200] + "...",
-                    "metadata": doc.metadata
-                }
-                for doc in relevant_docs
+                {"content": doc.page_content[:200] + "...", "metadata": doc.metadata}
+                for doc in result["source_documents"]
             ],
-            "num_sources": len(relevant_docs)
+            "num_sources": len(result["source_documents"]),
         }
-    
-    def batch_query(self, questions: List[str]) -> List[Dict]:
+
+    def batch_query(self, questions: List[str]) -> List[Dict[str, Any]]:
         return [self.query(q) for q in questions]
 
-# Usage
+
 if __name__ == "__main__":
-    rag = ProductionRAGSystem(persist_directory="./chroma_db", model="gpt-4", k=3)
+    rag = ProductionRAGSystem(persist_directory="./chroma_db", k=3)
     result = rag.query("What is the main topic discussed?")
-    
     print("\n\nAnswer:", result["answer"])
     print(f"\nUsed {result['num_sources']} sources")
 ```
@@ -1038,73 +1109,69 @@ if __name__ == "__main__":
 ### 7.1 Retriever Comparison
 
 ```python
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+import os
+from langchain_chroma import Chroma
+from langchain_openai import AzureOpenAIEmbeddings
 
-embeddings = OpenAIEmbeddings()
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
 )
+vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 
 # 1. Similarity search
 similarity_retriever = vectorstore.as_retriever(
     search_type="similarity",
-    search_kwargs={"k": 3}
+    search_kwargs={"k": 3},
 )
 
-# 2. MMR (Maximum Marginal Relevance) - Diverse results
+# 2. MMR (Maximum Marginal Relevance) — diverse results
 mmr_retriever = vectorstore.as_retriever(
     search_type="mmr",
-    search_kwargs={"k": 3, "fetch_k": 10}
+    search_kwargs={"k": 3, "fetch_k": 10},
 )
 
 # 3. Similarity with threshold
 threshold_retriever = vectorstore.as_retriever(
     search_type="similarity_score_threshold",
-    search_kwargs={"score_threshold": 0.7, "k": 3}
+    search_kwargs={"score_threshold": 0.7, "k": 3},
 )
 
-# Compare results
-query = "machine learning applications"
+query = "causes of the French Revolution"
 
 print("Similarity Search:")
-sim_docs = similarity_retriever.get_relevant_documents(query)
-print(f"Found {len(sim_docs)} documents\n")
+print(f"Found {len(similarity_retriever.invoke(query))} documents\n")
 
 print("MMR Search (Diverse):")
-mmr_docs = mmr_retriever.get_relevant_documents(query)
-print(f"Found {len(mmr_docs)} documents\n")
+print(f"Found {len(mmr_retriever.invoke(query))} documents\n")
 
 print("Threshold Search:")
-threshold_docs = threshold_retriever.get_relevant_documents(query)
-print(f"Found {len(threshold_docs)} documents")
+print(f"Found {len(threshold_retriever.invoke(query))} documents")
 ```
 
 ### 7.2 Contextual Compression
 
 ```python
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain_openai import ChatOpenAI
+import os
+from langchain_classic.retrievers import ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import LLMChainExtractor
+from langchain_openai import AzureChatOpenAI
 
-# Base retriever
 base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
-# Compressor extracts only relevant parts
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
+)
 compressor = LLMChainExtractor.from_llm(llm)
 
-# Compression retriever
 compression_retriever = ContextualCompressionRetriever(
     base_compressor=compressor,
-    base_retriever=base_retriever
+    base_retriever=base_retriever,
 )
 
-# Query
-query = "What are the applications of deep learning?"
-compressed_docs = compression_retriever.get_relevant_documents(query)
-
+compressed_docs = compression_retriever.invoke(
+    "What were the most important events of the Reign of Terror?"
+)
 print(f"Retrieved {len(compressed_docs)} compressed documents")
 for doc in compressed_docs:
     print(f"\n{doc.page_content}")
@@ -1113,26 +1180,15 @@ for doc in compressed_docs:
 ### 7.3 Parent Document Retriever
 
 ```python
-from langchain.retrievers import ParentDocumentRetriever
-from langchain.storage import InMemoryStore
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.retrievers import ParentDocumentRetriever
+from langchain_classic.storage import InMemoryStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Store for parent documents
 store = InMemoryStore()
 
-# Small chunks for retrieval
-child_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=200,
-    chunk_overlap=20
-)
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
 
-# Larger chunks for context
-parent_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=100
-)
-
-# Parent document retriever
 parent_retriever = ParentDocumentRetriever(
     vectorstore=vectorstore,
     docstore=store,
@@ -1140,77 +1196,62 @@ parent_retriever = ParentDocumentRetriever(
     parent_splitter=parent_splitter,
 )
 
-# Add documents
 parent_retriever.add_documents(documents)
 
-# Query - retrieves small chunks but returns large context
-docs = parent_retriever.get_relevant_documents(
-    "What is neural network architecture?"
-)
+# Retrieves small chunks for matching but returns the larger parent for context
+docs = parent_retriever.invoke("Who were the key figures of the Revolution?")
 ```
 
 ### 7.4 Self-Query Retriever
 
 ```python
-from langchain.retrievers.self_query.base import SelfQueryRetriever
-from langchain.chains.query_constructor.base import AttributeInfo
-from langchain_openai import ChatOpenAI
+import os
+from langchain_classic.retrievers.self_query.base import SelfQueryRetriever
+from langchain_classic.chains.query_constructor.base import AttributeInfo
+from langchain_openai import AzureChatOpenAI
 
-# Define metadata fields
 metadata_field_info = [
-    AttributeInfo(
-        name="source",
-        description="The source document name",
-        type="string"
-    ),
-    AttributeInfo(
-        name="page",
-        description="The page number in the source document",
-        type="integer"
-    ),
+    AttributeInfo(name="source", description="The source document name", type="string"),
+    AttributeInfo(name="page", description="The page number in the source document", type="integer"),
 ]
 
-# Document content description
-document_content_description = "Technical documentation about AI and ML"
+document_content_description = "Historical documentation about the French Revolution"
 
-# Self-query retriever
-llm = ChatOpenAI(model="gpt-4", temperature=0)
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+    temperature=0,
+)
 retriever = SelfQueryRetriever.from_llm(
     llm,
     vectorstore,
     document_content_description,
     metadata_field_info,
-    verbose=True
+    verbose=True,
 )
 
-# Natural language query with filters
-query = "What does the document say about neural networks from page 5?"
-docs = retriever.get_relevant_documents(query)
+# Natural language query that includes a metadata filter
+docs = retriever.invoke("What does the document say about the Reign of Terror on page 5?")
 ```
 
 ### 7.5 Ensemble Retriever
 
 ```python
-from langchain.retrievers import EnsembleRetriever
+from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 
-# Vector retriever (semantic search)
+# Vector retriever (semantic)
 vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-# BM25 retriever (keyword search)
+# BM25 retriever (keyword)
 bm25_retriever = BM25Retriever.from_documents(documents)
 bm25_retriever.k = 3
 
-# Ensemble combines both
 ensemble_retriever = EnsembleRetriever(
     retrievers=[vector_retriever, bm25_retriever],
-    weights=[0.5, 0.5]  # Equal weight
+    weights=[0.5, 0.5],
 )
 
-# Query
-docs = ensemble_retriever.get_relevant_documents(
-    "machine learning algorithms"
-)
+docs = ensemble_retriever.invoke("Bastille storming")
 print(f"Ensemble retrieved {len(docs)} documents")
 ```
 
@@ -1218,231 +1259,171 @@ print(f"Ensemble retrieved {len(docs)} documents")
 
 ## 8. Intermediate Project: PDF Q&A Chatbot
 
-> **Full implementation:** `examples/CompleteRAGImplementation.py`
+> **Full implementation:** [examples/CompleteRAGImplementation.py](examples/CompleteRAGImplementation.py)
 
 ### 8.1 Project Overview
 
-**Goal:** Build a chatbot that can answer questions about uploaded PDF documents
+**Goal:** Build a chatbot that answers questions about a directory of PDFs.
 
 **Features:**
-- Multiple PDF upload
-- Persistent vector store
-- Conversational memory
-- Source citation
-- Streaming responses
+- Loads every PDF in a directory
+- Persistent ChromaDB vector store (reused across runs)
+- Conversational memory via history-aware retriever
+- MMR-based retrieval for diverse context
+- Source citations on every answer
+- Interactive REPL with `quit` / `reset` commands
 
-### 8.2 Complete Implementation
+### 8.2 Implementation Sketch
+
+The full ~310-line implementation lives in [examples/CompleteRAGImplementation.py](examples/CompleteRAGImplementation.py). Below is the core wiring — it's the same pattern as §6.5, applied to a directory of PDFs.
 
 ```python
-# pdf_chatbot.py
-"""
-PDF Q&A Chatbot with LangChain
-"""
-
 import os
-from typing import List, Dict
+from pathlib import Path
+from typing import List, Dict, Any
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_classic.chains import (
+    create_history_aware_retriever,
+    create_retrieval_chain,
+)
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / "keys" / ".env")
 
 
 class PDFChatbot:
-    """
-    Chatbot for answering questions about PDF documents
-    """
-    
+    """Chatbot for answering questions about a directory of PDF documents."""
+
     def __init__(
         self,
         pdf_directory: str,
-        persist_directory: str = "./pdf_chatbot_db",
-        model: str = "gpt-4",
+        persist_directory: str = "./chroma_db",
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
-        k: int = 4
+        k: int = 4,
     ):
         self.pdf_directory = pdf_directory
         self.persist_directory = persist_directory
-        self.model = model
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.k = k
-        
-        self.embeddings = OpenAIEmbeddings()
-        self.llm = ChatOpenAI(model=model, temperature=0)
-        self.vectorstore = None
-        self.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            output_key="answer"
+
+        self.embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
         )
+        self.llm = AzureChatOpenAI(
+            azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+            temperature=0,
+        )
+        self.vectorstore: Chroma | None = None
         self.chain = None
-    
-    def load_pdfs(self) -> List:
+        self.chat_history: List[BaseMessage] = []
+
+    def initialize(self) -> None:
+        # 1. Load PDFs
         loader = DirectoryLoader(
             self.pdf_directory,
             glob="**/*.pdf",
             loader_cls=PyPDFLoader,
             show_progress=True,
-            use_multithreading=True
+            use_multithreading=True,
         )
         documents = loader.load()
-        print(f"✓ Loaded {len(documents)} pages from PDFs")
-        return documents
-    
-    def split_documents(self, documents: List) -> List:
-        text_splitter = RecursiveCharacterTextSplitter(
+
+        # 2. Split into chunks
+        splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
-            length_function=len,
-            separators=["\n\n", "\n", " ", ""]
         )
-        chunks = text_splitter.split_documents(documents)
-        print(f"✓ Created {len(chunks)} chunks")
-        return chunks
-    
-    def create_vectorstore(self, chunks: List):
+        chunks = splitter.split_documents(documents)
+
+        # 3. Create or load the vector store
         if os.path.exists(self.persist_directory):
             self.vectorstore = Chroma(
                 persist_directory=self.persist_directory,
-                embedding_function=self.embeddings
+                embedding_function=self.embeddings,
             )
+            if not self.vectorstore.get()["ids"]:
+                self.vectorstore.add_documents(chunks)
         else:
             self.vectorstore = Chroma.from_documents(
                 documents=chunks,
                 embedding=self.embeddings,
-                persist_directory=self.persist_directory
+                persist_directory=self.persist_directory,
             )
-        print(f"✓ Vector store ready with {self.vectorstore._collection.count()} embeddings")
-    
-    def setup_chain(self):
-        system_template = """You are a helpful AI assistant that answers questions about PDF documents.
 
-Use the following context to answer the user's question. If you don't know the answer
-or can't find it in the context, say so clearly.
-
-Context:
-{context}
-
-Chat History:
-{chat_history}
-
-Instructions:
-1. Answer based on the provided context
-2. Be specific and cite relevant information
-3. If the answer isn't in the context, say "I cannot find this information in the provided documents"
-4. Maintain conversation continuity using chat history
-
-Answer the question thoughtfully and accurately."""
-        
+        # 4. Build the conversational RAG chain (history-aware retriever + QA)
         retriever = self.vectorstore.as_retriever(
             search_type="mmr",
-            search_kwargs={"k": self.k, "fetch_k": self.k * 3}
+            search_kwargs={"k": self.k, "fetch_k": self.k * 3},
         )
-        
-        self.chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
-            retriever=retriever,
-            memory=self.memory,
-            return_source_documents=True,
-            verbose=False,
-            combine_docs_chain_kwargs={
-                "prompt": ChatPromptTemplate.from_template(system_template)
-            }
+
+        contextualize_q_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+             "Given a chat history and the latest user question which might reference "
+             "context in the chat history, formulate a standalone question which can be "
+             "understood without the chat history. Do NOT answer the question."),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+        history_aware_retriever = create_history_aware_retriever(
+            self.llm, retriever, contextualize_q_prompt
         )
-    
-    def initialize(self):
-        documents = self.load_pdfs()
-        chunks = self.split_documents(documents)
-        self.create_vectorstore(chunks)
-        self.setup_chain()
-        print("\n✅ Chatbot is ready! Start asking questions.\n")
-    
-    def ask(self, question: str) -> Dict:
-        result = self.chain({"question": question})
+
+        qa_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+             "You are a helpful assistant. Use the retrieved context to answer. "
+             "If you don't know, say \"I cannot find this information in the provided documents.\"\n\n"
+             "Context:\n{context}"),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        self.chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+    def ask(self, question: str) -> Dict[str, Any]:
+        result = self.chain.invoke({
+            "input": question,
+            "chat_history": self.chat_history,
+        })
+        answer = result["answer"]
+        self.chat_history.extend([
+            HumanMessage(content=question),
+            AIMessage(content=answer),
+        ])
         return {
-            "answer": result["answer"],
+            "answer": answer,
             "sources": [
                 {
                     "page": doc.metadata.get("page", "N/A"),
                     "source": doc.metadata.get("source", "Unknown"),
-                    "content_preview": doc.page_content[:150] + "..."
                 }
-                for doc in result["source_documents"]
-            ]
+                for doc in result["context"]
+            ],
         }
-    
-    def chat(self):
-        print("=" * 60)
-        print("PDF Q&A CHATBOT")
-        print("=" * 60)
-        print("Ask questions about your PDF documents!")
-        print("Type 'quit', 'exit', or 'q' to end the conversation")
-        print("Type 'reset' to clear conversation history")
-        print("=" * 60 + "\n")
-        
-        while True:
-            question = input("You: ").strip()
-            
-            if question.lower() in ['quit', 'exit', 'q']:
-                print("\n👋 Goodbye!")
-                break
-            if question.lower() == 'reset':
-                self.memory.clear()
-                print("\n🔄 Conversation history cleared!\n")
-                continue
-            if not question:
-                continue
-            
-            try:
-                result = self.ask(question)
-                print(f"\n🤖 Assistant: {result['answer']}")
-                if result['sources']:
-                    print(f"\n📚 Sources:")
-                    for i, source in enumerate(result['sources'], 1):
-                        print(f"   {i}. {source['source']} (Page {source['page']})")
-                print()
-            except Exception as e:
-                print(f"\n❌ Error: {str(e)}\n")
-
-
-# Main execution
-if __name__ == "__main__":
-    PDF_DIRECTORY = "./data/pdfs"
-    os.makedirs(PDF_DIRECTORY, exist_ok=True)
-    
-    chatbot = PDFChatbot(
-        pdf_directory=PDF_DIRECTORY,
-        persist_directory="./pdf_chatbot_db",
-        model="gpt-4",
-        chunk_size=1000,
-        chunk_overlap=200,
-        k=3
-    )
-    chatbot.initialize()
-    chatbot.chat()
 ```
+
+> **Note:** the `result` returned by `create_retrieval_chain` puts the retrieved docs under `result["context"]` (not `result["source_documents"]` like the legacy chain).
 
 ### 8.3 Usage Instructions
 
 ```bash
-# 1. Install dependencies
-pip install langchain langchain-community langchain-openai
-pip install chromadb pypdf tiktoken python-dotenv
+# 1. Install dependencies (already covered by the top-level Setup)
+pip install -r requirements.txt
 
-# 2. Create .env file
-echo "OPENAI_API_KEY=your-api-key-here" > .env
+# 2. Make sure keys/.env exists with your Azure OpenAI credentials
+#    (see the top-level Setup section)
 
-# 3. Create data directory and add PDFs
-mkdir -p data/pdfs
-# Copy your PDF files to data/pdfs/
+# 3. The repo ships with examples/data/TheFrenchRevolution.pdf;
+#    drop additional PDFs into examples/data/ if you want.
 
 # 4. Run the chatbot
 python examples/CompleteRAGImplementation.py
@@ -1459,26 +1440,26 @@ Type 'quit', 'exit', or 'q' to end the conversation
 Type 'reset' to clear conversation history
 ============================================================
 
-You: What is the main topic of the research paper?
+You: What were the main causes of the French Revolution?
 
-🤖 Assistant: The main topic of the research paper is "Deep Learning for
-Natural Language Processing." The paper explores various neural network
-architectures for NLP tasks, including transformers, BERT, and GPT models.
-
-📚 Sources:
-   1. research_paper.pdf (Page 1)
-   2. research_paper.pdf (Page 2)
-
-You: What are the key findings?
-
-🤖 Assistant: The key findings from the research include:
-1. Transformer models outperform RNNs by 23% on machine translation tasks
-2. Pre-training on large corpora significantly improves downstream task performance
-3. Attention mechanisms allow models to capture long-range dependencies effectively
+🤖 Assistant: The main causes were widespread financial crisis driven by
+costly wars and royal extravagance, deep social inequality between the
+estates, food shortages caused by poor harvests, and Enlightenment ideas
+that challenged the legitimacy of absolute monarchy.
 
 📚 Sources:
-   1. research_paper.pdf (Page 8)
-   2. research_paper.pdf (Page 12)
+   1. TheFrenchRevolution.pdf (Page 1)
+   2. TheFrenchRevolution.pdf (Page 2)
+
+You: What about the Reign of Terror specifically?
+
+🤖 Assistant: The Reign of Terror (1793–1794) was a period in which the
+revolutionary government, dominated by the Committee of Public Safety
+under Robespierre, used mass executions to suppress perceived enemies of
+the Revolution...
+
+📚 Sources:
+   1. TheFrenchRevolution.pdf (Page 4)
 
 You: quit
 
@@ -1492,8 +1473,8 @@ You: quit
 ### 9.1 Chunk Size Optimization
 
 ```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 import time
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 def benchmark_chunk_sizes(documents, sizes=[500, 1000, 1500, 2000]):
     """Test different chunk sizes"""
@@ -1528,42 +1509,48 @@ results = benchmark_chunk_sizes(documents)
 
 ### 9.2 Embedding Model Comparison
 
+> Note: HuggingFace embeddings require `pip install sentence-transformers` (not in `requirements.txt` by default).
+
 ```python
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
+import os
 import time
+from langchain_openai import AzureOpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
 
 def compare_embedding_models(texts):
-    """Compare different embedding models"""
+    """Compare different embedding models on the same input."""
     models = {
-        "OpenAI": OpenAIEmbeddings(),
+        "Azure OpenAI": AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+        ),
         "HuggingFace (MiniLM)": HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
         ),
         "HuggingFace (MPNet)": HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-mpnet-base-v2"
-        )
+            model_name="sentence-transformers/all-mpnet-base-v2",
+        ),
     }
-    
+
     results = {}
     for name, model in models.items():
         start = time.time()
         embeddings = model.embed_documents(texts[:100])
         elapsed = time.time() - start
-        
         results[name] = {
             "time": elapsed,
             "dimension": len(embeddings[0]),
-            "cost": "Paid" if "OpenAI" in name else "Free"
+            "cost": "Paid" if "Azure" in name else "Free (local)",
         }
-    
+
     print("\nEmbedding Model Comparison:")
-    print(f"{'Model':<30} {'Time (s)':<12} {'Dimensions':<12} {'Cost':<10}")
+    print(f"{'Model':<30} {'Time (s)':<12} {'Dimensions':<12} {'Cost':<14}")
     print("-" * 70)
     for name, data in results.items():
-        print(f"{name:<30} {data['time']:<12.3f} {data['dimension']:<12} {data['cost']:<10}")
-    
+        print(f"{name:<30} {data['time']:<12.3f} {data['dimension']:<12} {data['cost']:<14}")
+
     return results
+
 
 sample_texts = [chunk.page_content for chunk in chunks[:100]]
 compare_embedding_models(sample_texts)
@@ -1572,35 +1559,36 @@ compare_embedding_models(sample_texts)
 ### 9.3 Retrieval Optimization
 
 ```python
-def optimize_retrieval_params(vectorstore, test_queries, k_values=[3, 5, 7, 10]):
-    """Test different k values for retrieval"""
+def optimize_retrieval_params(vectorstore, test_queries, k_values=(3, 5, 7, 10)):
+    """Test different k values for retrieval."""
     print("\nRetrieval Parameter Optimization:")
     print(f"{'k Value':<10} {'Avg Docs':<12} {'Avg Relevance':<15}")
     print("-" * 40)
-    
+
     for k in k_values:
         retriever = vectorstore.as_retriever(
             search_type="similarity_score_threshold",
-            search_kwargs={"k": k, "score_threshold": 0.5}
+            search_kwargs={"k": k, "score_threshold": 0.5},
         )
-        
+
         total_docs = 0
         total_relevance = 0
-        
+
         for query in test_queries:
-            docs = retriever.get_relevant_documents(query)
+            docs = retriever.invoke(query)
             total_docs += len(docs)
             total_relevance += len(docs) * 0.8
-        
+
         avg_docs = total_docs / len(test_queries)
         avg_relevance = total_relevance / len(test_queries)
-        
+
         print(f"{k:<10} {avg_docs:<12.1f} {avg_relevance:<15.2f}")
 
+
 test_queries = [
-    "What is machine learning?",
-    "Explain neural networks",
-    "What are the applications?"
+    "What were the main causes of the French Revolution?",
+    "What happened during the Reign of Terror?",
+    "Who were the major figures of the Revolution?",
 ]
 optimize_retrieval_params(vectorstore, test_queries)
 ```
@@ -1608,24 +1596,27 @@ optimize_retrieval_params(vectorstore, test_queries)
 ### 9.4 Caching Strategies
 
 ```python
-from langchain.cache import InMemoryCache
-from langchain.globals import set_llm_cache
-from langchain_openai import ChatOpenAI
+import os
 import time
+from langchain_core.caches import InMemoryCache
+from langchain_core.globals import set_llm_cache
+from langchain_openai import AzureChatOpenAI
 
-# Enable caching
+# Enable an LLM-level cache shared across all chat models
 set_llm_cache(InMemoryCache())
 
-llm = ChatOpenAI(model="gpt-4")
+llm = AzureChatOpenAI(
+    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+)
 
-# First call - no cache
+# First call — hits the model
 start = time.time()
-response1 = llm.invoke("What is 2+2?")
+llm.invoke("What is 2+2?")
 time1 = time.time() - start
 
-# Second call - cached
+# Second call — served from the cache
 start = time.time()
-response2 = llm.invoke("What is 2+2?")
+llm.invoke("What is 2+2?")
 time2 = time.time() - start
 
 print(f"First call: {time1:.3f}s")
@@ -1664,22 +1655,23 @@ results = batch_process_queries(rag_chain, queries, batch_size=2)
 
 ### Exercise 1: Alternative Text Splitters
 
-**Task:** Implement and compare three different text splitters
+**Task:** Implement and compare three different text splitters.
 
 ```python
-from langchain.text_splitter import (
+from langchain_text_splitters import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
     TokenTextSplitter,
-    SpacyTextSplitter
 )
 
 # Your code here:
-# 1. Load a document
+# 1. Load a document (e.g. examples/data/TheFrenchRevolution.txt)
 # 2. Split using three different splitters
 # 3. Compare the number and quality of chunks
 # 4. Determine which is best for your use case
 ```
+
+> **Optional:** for a fourth splitter, install spaCy (`pip install spacy && python -m spacy download en_core_web_sm`) and try `SpacyTextSplitter` from `langchain_text_splitters`.
 
 **Expected Output:**
 - Comparison table showing chunks created by each splitter
@@ -1709,7 +1701,7 @@ docs = load_with_custom_metadata("paper.pdf", category="research", author="John 
 **Task:** Implement a hybrid retriever combining semantic and keyword search
 
 ```python
-from langchain.retrievers import EnsembleRetriever
+from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 
 def create_hybrid_retriever(documents, vector_weight=0.5):
@@ -1775,8 +1767,8 @@ def evaluate_rag_system(rag_chain, test_set):
     pass
 
 test_set = [
-    ("What is ML?", "Machine learning is a type of AI..."),
-    ("Define neural networks", "Neural networks are...")
+    ("What were the main causes of the French Revolution?", "Financial crisis, social inequality..."),
+    ("Who was Robespierre?", "A leader of the Jacobins during the Reign of Terror..."),
 ]
 metrics = evaluate_rag_system(rag_chain, test_set)
 ```
@@ -1806,6 +1798,23 @@ Implement document filtering by date range, categories, and minimum relevance sc
 ---
 
 ## 11. Troubleshooting (macOS)
+
+### Azure OpenAI Errors
+
+**`openai.NotFoundError: The API deployment for this resource does not exist`**
+- Cause: `AZURE_OPENAI_CHAT_DEPLOYMENT` or `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT` doesn't match a deployment in your Azure resource. The variable holds the **deployment name** you set in Azure, not the underlying model name.
+- Fix: Open the Azure AI Studio / portal, copy the deployment names for your chat + embeddings models, and update `keys/.env`.
+
+**`openai.AuthenticationError: Incorrect API key`**
+- Cause: `AZURE_OPENAI_API_KEY` is wrong or copy-pasted with whitespace.
+- Fix: Re-copy the key from Azure portal → Keys and Endpoint.
+
+**`openai.BadRequestError` mentioning an unsupported API version**
+- Cause: `OPENAI_API_VERSION` doesn't support the feature/model you're using.
+- Fix: Use a recent version such as `2024-10-21`.
+
+**`KeyError` for `AZURE_OPENAI_*` variables**
+- Cause: `keys/.env` not found, or `load_dotenv()` ran before the file existed. Every example resolves the path as `… / "keys" / ".env"` — run scripts from the project root or check the resolved path matches.
 
 ### SSL Certificate Errors
 
@@ -1871,9 +1880,10 @@ pip install python-magic
 ### Best Practices
 1. **Chunking:** Start with 1000 chars, 200 overlap
 2. **Retrieval:** Use k=3-5 for most queries
-3. **Embeddings:** OpenAI for quality, HuggingFace for cost
-4. **Vector Store:** Chroma for dev, Pinecone for production
-5. **Prompt Engineering:** Always instruct to cite sources
+3. **Embeddings:** Azure OpenAI / OpenAI for quality, HuggingFace `sentence-transformers` for cost-free local
+4. **Vector Store:** Chroma for dev, Pinecone / Weaviate / Qdrant for production
+5. **Prompt Engineering:** Always instruct the model to cite sources and refuse when context is insufficient
+6. **Modern APIs:** Prefer `create_retrieval_chain` + `create_history_aware_retriever` over the deprecated `RetrievalQA` / `ConversationalRetrievalChain`
 
 ### Common Pitfalls
 - ❌ Chunks too large → Poor retrieval

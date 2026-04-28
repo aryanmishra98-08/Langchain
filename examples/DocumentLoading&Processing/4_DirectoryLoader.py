@@ -1,5 +1,5 @@
 from pathlib import Path
-from langchain_community.document_loaders import DirectoryLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
 # Edit the values below to adapt the script to your environment.
@@ -14,6 +14,7 @@ CONTENT_PREVIEW_LENGTH = 150   # characters to show in preview
 loader = DirectoryLoader(
     DATA_DIR,
     glob=GLOB_PATTERN,
+    loader_cls=TextLoader,
     show_progress=True,
     use_multithreading=True
 )
