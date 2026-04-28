@@ -1,17 +1,22 @@
-# Core dependencies
-langchain 
-langchain-community 
+# Core LangChain
+langchain
+langchain-classic
+langchain-community
+langchain-core
 langchain-openai
+langchain-chroma
+langchain-text-splitters
 langchain-experimental
-chromadb 
+
+# Vector store backend
+chromadb
+
+# Tokenization (used by TokenTextSplitter, OpenAI counting)
 tiktoken
 
 # Document loaders
-pypdf 
-python-docx 
-unstructured
-beautifulsoup4 
-lxml
+pypdf
+beautifulsoup4
 
 # Additional utilities
 python-dotenv

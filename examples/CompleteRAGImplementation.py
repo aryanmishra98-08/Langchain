@@ -1,262 +1,292 @@
 """
-PDF Q&A Chatbot with LangChain
-Author: Your Name
+PDF Q&A Chatbot with LangChain (v1.x)
 """
 
 import os
-from typing import List, Dict
+from pathlib import Path
+from typing import List, Dict, Any
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_classic.chains import (
+    create_history_aware_retriever,
+    create_retrieval_chain,
+)
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / "keys" / ".env")
+
+_CHROMA_DIR = str(Path(__file__).resolve().parent / "chroma_db")
+
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+# Edit the values below to adapt the script to your environment.
+_BASE_DIR = Path(__file__).resolve().parent
+PDF_DIRECTORY = str(_BASE_DIR / "data")  # directory containing PDF files to chat with
+CHUNK_SIZE = 1000         # characters per chunk
+CHUNK_OVERLAP = 200       # overlap between consecutive chunks
+LLM_TEMPERATURE = 0       # LLM temperature (0 = deterministic)
+RETRIEVER_K = 3           # number of documents to retrieve per query
+PDF_GLOB = "**/*.pdf"     # glob pattern for PDF files inside PDF_DIRECTORY
+MMR_FETCH_K_MULTIPLIER = 3  # fetch_k = RETRIEVER_K * MMR_FETCH_K_MULTIPLIER
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 class PDFChatbot:
     """
-    Chatbot for answering questions about PDF documents
+    Chatbot for answering questions about PDF documents.
     """
-    
+
     def __init__(
         self,
         pdf_directory: str,
-        persist_directory: str = "./pdf_chatbot_db",
-        model: str = "gpt-4",
+        persist_directory: str = _CHROMA_DIR,
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
-        k: int = 4
+        k: int = 4,
     ):
         """
-        Initialize the PDF chatbot
-        
+        Initialize the PDF chatbot.
+
         Args:
             pdf_directory: Directory containing PDF files
             persist_directory: Where to store vector database
-            model: OpenAI model to use
             chunk_size: Size of text chunks
             chunk_overlap: Overlap between chunks
             k: Number of documents to retrieve
         """
         self.pdf_directory = pdf_directory
         self.persist_directory = persist_directory
-        self.model = model
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.k = k
-        
+
         # Initialize components
-        self.embeddings = OpenAIEmbeddings()
-        self.llm = ChatOpenAI(model=model, temperature=0)
-        self.vectorstore = None
-        self.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            output_key="answer"
+        self.embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT")
         )
+        self.llm = AzureChatOpenAI(
+            azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+            temperature=LLM_TEMPERATURE,
+        )
+        self.vectorstore: Chroma | None = None
         self.chain = None
-        
+        self.chat_history: List[BaseMessage] = []
+
         print("✓ PDF Chatbot initialized")
-    
-    def load_pdfs(self) -> List:
-        """Load all PDFs from directory"""
+
+    def load_pdfs(self) -> List[Document]:
+        """Load all PDFs from directory."""
         print(f"\n📂 Loading PDFs from {self.pdf_directory}...")
-        
+
         loader = DirectoryLoader(
             self.pdf_directory,
-            glob="**/*.pdf",
+            glob=PDF_GLOB,
             loader_cls=PyPDFLoader,
             show_progress=True,
-            use_multithreading=True
+            use_multithreading=True,
         )
-        
+
         documents = loader.load()
         print(f"✓ Loaded {len(documents)} pages from PDFs")
-        
         return documents
-    
-    def split_documents(self, documents: List) -> List:
-        """Split documents into chunks"""
-        print(f"\n✂️  Splitting documents into chunks...")
-        
+
+    def split_documents(self, documents: List[Document]) -> List[Document]:
+        """Split documents into chunks."""
+        print("\n✂️  Splitting documents into chunks...")
+
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
             length_function=len,
-            separators=["\n\n", "\n", " ", ""]
+            separators=["\n\n", "\n", " ", ""],
         )
-        
+
         chunks = text_splitter.split_documents(documents)
         print(f"✓ Created {len(chunks)} chunks")
-        
-        # Show sample chunk
+
         if chunks:
-            print(f"\nSample chunk:")
+            print("\nSample chunk:")
             print(f"Length: {len(chunks[0].page_content)} chars")
             print(f"Preview: {chunks[0].page_content[:150]}...")
-        
+
         return chunks
-    
-    def create_vectorstore(self, chunks: List):
-        """Create or load vector store"""
-        print(f"\n🔢 Creating vector store...")
-        
-        # Check if vectorstore exists
+
+    def create_vectorstore(self, chunks: List[Document]) -> None:
+        """Create or load vector store."""
+        print("\n🔢 Creating vector store...")
+
         if os.path.exists(self.persist_directory):
             print(f"Loading existing vector store from {self.persist_directory}")
             self.vectorstore = Chroma(
                 persist_directory=self.persist_directory,
-                embedding_function=self.embeddings
+                embedding_function=self.embeddings,
             )
+            doc_count = len(self.vectorstore.get()["ids"])
+            if doc_count == 0:
+                print("Existing vector store is empty, adding documents...")
+                self.vectorstore.add_documents(chunks)
         else:
             print(f"Creating new vector store at {self.persist_directory}")
             self.vectorstore = Chroma.from_documents(
                 documents=chunks,
                 embedding=self.embeddings,
-                persist_directory=self.persist_directory
+                persist_directory=self.persist_directory,
             )
-        
-        print(f"✓ Vector store ready with {self.vectorstore._collection.count()} embeddings")
-    
-    def setup_chain(self):
-        """Setup the conversational chain"""
-        print(f"\n🔗 Setting up conversational chain...")
-        
-        # Custom prompt
-        system_template = """You are a helpful AI assistant that answers questions about PDF documents.
 
-Use the following context to answer the user's question. If you don't know the answer or can't find it in the context, say so clearly.
+        doc_count = len(self.vectorstore.get()["ids"])
+        print(f"✓ Vector store ready with {doc_count} embeddings")
 
-Context:
-{context}
+    def setup_chain(self) -> None:
+        """Setup the conversational RAG chain."""
+        print("\n🔗 Setting up conversational chain...")
 
-Chat History:
-{chat_history}
+        if not self.vectorstore:
+            raise ValueError("Vector store not initialized")
 
-Instructions:
-1. Answer based on the provided context
-2. Be specific and cite relevant information
-3. If the answer isn't in the context, say "I cannot find this information in the provided documents"
-4. Maintain conversation continuity using chat history
-
-Answer the question thoughtfully and accurately."""
-        
-        # Create retriever
         retriever = self.vectorstore.as_retriever(
             search_type="mmr",
-            search_kwargs={"k": self.k, "fetch_k": self.k * 3}
+            search_kwargs={"k": self.k, "fetch_k": self.k * MMR_FETCH_K_MULTIPLIER},
         )
-        
-        # Create chain
-        self.chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
-            retriever=retriever,
-            memory=self.memory,
-            return_source_documents=True,
-            verbose=False,
-            combine_docs_chain_kwargs={
-                "prompt": ChatPromptTemplate.from_template(system_template)
-            }
+
+        # Step 1: Contextualize question — rewrite follow-ups using chat history
+        contextualize_q_system_prompt = (
+            "Given a chat history and the latest user question "
+            "which might reference context in the chat history, "
+            "formulate a standalone question which can be understood "
+            "without the chat history. Do NOT answer the question, "
+            "just reformulate it if needed; otherwise return it as is."
         )
-        
+        contextualize_q_prompt = ChatPromptTemplate.from_messages([
+            ("system", contextualize_q_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+        history_aware_retriever = create_history_aware_retriever(
+            self.llm, retriever, contextualize_q_prompt
+        )
+
+        # Step 2: Answer prompt — uses retrieved context + chat history
+        qa_system_prompt = (
+            "You are a helpful AI assistant that answers questions about PDF documents.\n\n"
+            "Use the following context to answer the user's question. "
+            "If you don't know the answer or can't find it in the context, "
+            "say \"I cannot find this information in the provided documents.\"\n\n"
+            "Instructions:\n"
+            "1. Answer based on the provided context\n"
+            "2. Be specific and cite relevant information\n"
+            "3. Maintain conversation continuity using chat history\n"
+            "4. Answer thoughtfully and accurately\n\n"
+            "Context:\n{context}"
+        )
+        qa_prompt = ChatPromptTemplate.from_messages([
+            ("system", qa_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+
+        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        self.chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
         print("✓ Conversational chain ready")
-    
-    def initialize(self):
-        """Initialize the complete chatbot"""
-        # Load PDFs
+
+    def initialize(self) -> None:
+        """Initialize the complete chatbot."""
         documents = self.load_pdfs()
-        
-        # Split into chunks
+        if not documents:
+            raise ValueError(f"No PDF files found in '{self.pdf_directory}'. Please add PDF files and try again.")
         chunks = self.split_documents(documents)
-        
-        # Create vector store
         self.create_vectorstore(chunks)
-        
-        # Setup chain
         self.setup_chain()
-        
         print("\n✅ Chatbot is ready! Start asking questions.\n")
-    
-    def ask(self, question: str) -> Dict:
+
+    def ask(self, question: str) -> Dict[str, Any]:
         """
-        Ask a question to the chatbot
-        
+        Ask a question to the chatbot.
+
         Args:
             question: The user's question
-            
+
         Returns:
-            Dictionary with answer and sources
+            Dict with answer and sources
         """
         if not self.chain:
             raise ValueError("Chatbot not initialized. Call initialize() first.")
-        
-        # Get response
-        result = self.chain({"question": question})
-        
-        # Format response
-        response = {
-            "answer": result["answer"],
+
+        result = self.chain.invoke({
+            "input": question,
+            "chat_history": self.chat_history,
+        })
+
+        answer = result["answer"]
+
+        # Append turn to history for next iteration
+        self.chat_history.extend([
+            HumanMessage(content=question),
+            AIMessage(content=answer),
+        ])
+
+        return {
+            "answer": answer,
             "sources": [
                 {
                     "page": doc.metadata.get("page", "N/A"),
                     "source": doc.metadata.get("source", "Unknown"),
-                    "content_preview": doc.page_content[:150] + "..."
+                    "content_preview": doc.page_content[:150] + "...",
                 }
-                for doc in result["source_documents"]
-            ]
+                for doc in result["context"]
+            ],
         }
-        
-        return response
-    
-    def chat(self):
-        """Interactive chat loop"""
-        print("="*60)
+
+    def chat(self) -> None:
+        """Interactive chat loop."""
+        print("=" * 60)
         print("PDF Q&A CHATBOT")
-        print("="*60)
+        print("=" * 60)
         print("Ask questions about your PDF documents!")
         print("Type 'quit', 'exit', or 'q' to end the conversation")
         print("Type 'reset' to clear conversation history")
-        print("="*60 + "\n")
-        
+        print("=" * 60 + "\n")
+
         while True:
-            # Get user input
-            question = input("You: ").strip()
-            
-            # Check for exit commands
-            if question.lower() in ['quit', 'exit', 'q']:
+            try:
+                question = input("You: ").strip()
+            except KeyboardInterrupt:
+                print("\n\n👋 Interrupted. Goodbye!")
+                break
+
+            if question.lower() in {"quit", "exit", "q"}:
                 print("\n👋 Goodbye!")
                 break
-            
-            # Check for reset
-            if question.lower() == 'reset':
-                self.memory.clear()
+
+            if question.lower() == "reset":
+                self.chat_history.clear()
                 print("\n🔄 Conversation history cleared!\n")
                 continue
-            
-            # Skip empty input
+
             if not question:
                 continue
-            
-            # Get response
+
             try:
                 result = self.ask(question)
-                
-                # Print answer
+
                 print(f"\n🤖 Assistant: {result['answer']}")
-                
-                # Print sources
-                if result['sources']:
-                    print(f"\n📚 Sources:")
-                    for i, source in enumerate(result['sources'], 1):
+
+                if result["sources"]:
+                    print("\n📚 Sources:")
+                    for i, source in enumerate(result["sources"], 1):
                         print(f"   {i}. {source['source']} (Page {source['page']})")
-                
-                print()  # Empty line for readability
-                
+
+                print()
+
+            except KeyboardInterrupt:
+                print("\n\n👋 Interrupted. Goodbye!")
+                break
             except Exception as e:
                 print(f"\n❌ Error: {str(e)}\n")
 
@@ -264,24 +294,17 @@ Answer the question thoughtfully and accurately."""
 # Main execution
 if __name__ == "__main__":
     # Configuration
-    PDF_DIRECTORY = "./data/pdfs"  # Put your PDFs here
-    PERSIST_DIRECTORY = "./pdf_chatbot_db"
-    
-    # Create PDF directory if it doesn't exist
+    PERSIST_DIRECTORY = _CHROMA_DIR
+
     os.makedirs(PDF_DIRECTORY, exist_ok=True)
-    
-    # Initialize chatbot
+
     chatbot = PDFChatbot(
         pdf_directory=PDF_DIRECTORY,
         persist_directory=PERSIST_DIRECTORY,
-        model="gpt-4",
-        chunk_size=1000,
-        chunk_overlap=200,
-        k=3
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+        k=RETRIEVER_K,
     )
-    
-    # Initialize (load PDFs, create embeddings)
+
     chatbot.initialize()
-    
-    # Start interactive chat
     chatbot.chat()

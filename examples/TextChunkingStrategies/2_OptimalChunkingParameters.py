@@ -2,10 +2,16 @@ from pathlib import Path
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+# Edit the values below to adapt the script to your environment.
+_BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_FILE = _BASE_DIR / "data" / "TheFrenchRevolution.txt"  # path to the file to chunk
+FILE_ENCODING = "utf-8"   # file encoding
+DEFAULT_USE_CASE = "qa"  # use case to demo: "general", "code", "qa", "long_context"
+# ──────────────────────────────────────────────────────────────────────────────
+
 # Load a single text file
-base_dir = Path(__file__).resolve().parents[1]
-file_path = base_dir / "data" / "TheFrenchRevolution.txt"
-loader = TextLoader(str(file_path), encoding="utf-8")
+loader = TextLoader(str(DATA_FILE), encoding=FILE_ENCODING)
 documents = loader.load()
 
 
@@ -44,7 +50,7 @@ def create_optimized_splitter(use_case: str):
 
 
 # Usage
-splitter = create_optimized_splitter("qa")
+splitter = create_optimized_splitter(DEFAULT_USE_CASE)
 chunks = splitter.split_documents(documents)
 print(f"Created {len(chunks)} chunks")
 print(f"Sample chunk content: {chunks[0].page_content[:200]}")

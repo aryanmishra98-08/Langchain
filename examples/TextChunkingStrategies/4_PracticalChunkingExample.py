@@ -2,6 +2,15 @@ from pathlib import Path
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
+# Edit the values below to adapt the script to your environment.
+_BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_FILE = _BASE_DIR / "data" / "TheFrenchRevolution.txt"  # path to the file to chunk
+CHUNK_SIZE = 1000                              # max characters per chunk
+CHUNK_OVERLAP = 200                            # overlap between consecutive chunks
+SEPARATORS = ["\n\n", "\n", " ", ""]          # ordered list of split separators
+# ──────────────────────────────────────────────────────────────────────────────
+
 
 def process_documents(file_path: str):
     """
@@ -14,10 +23,10 @@ def process_documents(file_path: str):
 
     # 2. Split into chunks
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
         length_function=len,
-        separators=["\n\n", "\n", " ", ""],
+        separators=SEPARATORS,
     )
     chunks = text_splitter.split_documents(documents)
     print(f"Split into {len(chunks)} chunks")
@@ -33,6 +42,4 @@ def process_documents(file_path: str):
 
 
 # Usage
-base_dir = Path(__file__).resolve().parents[1]
-file_path = base_dir / "data" / "TheFrenchRevolution.txt"
-chunks = process_documents(file_path)
+chunks = process_documents(DATA_FILE)

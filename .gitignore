@@ -1,7 +1,9 @@
 # Python
 __pycache__/
+venv/
 myenv/
 nohup.out
+chroma_db/
 
 # Logs
 *.log*
