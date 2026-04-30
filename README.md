@@ -720,7 +720,7 @@ if __name__ == "__main__":
 
 > See: [examples/BuildingRAGPipelines/1_BasicRAGChain.py](examples/BuildingRAGPipelines/1_BasicRAGChain.py)
 
-LangChain v1.x replaces the legacy `RetrievalQA` class with composable building blocks: `create_stuff_documents_chain` for the answer step and `create_retrieval_chain` to wire retrieval into it.
+The legacy `RetrievalQA` class is deprecated. The v1 chain-based replacement (in `langchain-classic`) uses composable building blocks: `create_stuff_documents_chain` for the answer step and `create_retrieval_chain` to wire retrieval into it.
 
 ```python
 import os
@@ -924,7 +924,7 @@ print(f"Retrieved {len(unique_docs)} unique documents")
 
 > See: [examples/BuildingRAGPipelines/5_ConversationalRAG.py](examples/BuildingRAGPipelines/5_ConversationalRAG.py)
 
-The legacy `ConversationalRetrievalChain` + `ConversationBufferMemory` API is replaced in v1.x by **`create_history_aware_retriever`**, which rewrites follow-up questions into standalone queries before retrieval. Chat history is kept as a plain list of `HumanMessage`/`AIMessage`.
+The legacy `ConversationalRetrievalChain` + `ConversationBufferMemory` API is deprecated. The v1 chain-based replacement (in `langchain-classic`) is **`create_history_aware_retriever`**, which rewrites follow-up questions into standalone queries before retrieval. Chat history is kept as a plain list of `HumanMessage`/`AIMessage`.
 
 ```python
 import os
@@ -1181,7 +1181,7 @@ for doc in compressed_docs:
 
 ```python
 from langchain_classic.retrievers import ParentDocumentRetriever
-from langchain_classic.storage import InMemoryStore
+from langchain_core.stores import InMemoryStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 store = InMemoryStore()
