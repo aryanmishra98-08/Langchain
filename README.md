@@ -1,5 +1,7 @@
 # LangChain RAG: Comprehensive Intermediate Learning Guide
 
+A structured, example-driven repository for learning RAG with [LangChain](https://www.langchain.com/) — the leading open-source framework for building applications powered by large language models. Each example builds on the last, taking you from your first Data Extraction to a production-ready RAG QA Chatbot.
+
 **Target Audience:** Developers with LangChain basics and LLM invocation experience  
 **Duration:** 8-12 hours of hands-on learning  
 **Prerequisites:** Python 3.8+, Basic LangChain knowledge, Understanding of LLMs
