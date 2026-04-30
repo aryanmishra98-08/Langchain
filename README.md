@@ -2,6 +2,10 @@
 
 A structured, example-driven repository for learning [LangChain](https://www.langchain.com/) — the leading open-source framework for building applications powered by large language models. Each example builds on the last, taking you from your first LLM call to a production-ready conversational chatbot.
 
+**Target Audience:** Developers with LLM invocation experience  
+**Duration:** 2-3 hours of hands-on learning  
+**Prerequisites:** Python 3.8+, Basic LangChain knowledge, Understanding of LLMs
+
 ---
 
 ## Philosophy
