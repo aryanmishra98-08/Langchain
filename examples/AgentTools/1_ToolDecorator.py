@@ -5,14 +5,13 @@
 # Topic:  The @tool decorator pattern with annotated good/bad examples.
 # =============================================================================
 # The @tool decorator turns a regular Python function into a LangChain tool.
-# The docstring becomes the tool description used by the agent for selection.
-# Type hints define the input schema.
+# The docstring becomes the agent's description for tool selection — a vague
+# docstring leads to poor tool selection. Type hints define the input schema.
 #
-# Migration note: Import from langchain_core.tools, not langchain.tools.
-#
-# Why numexpr? eval() has known escape vectors and is unsafe for production.
-# numexpr parses expressions through a restricted grammar that only supports
-# mathematical operations, making it the standard choice for calculator tools.
+# Why numexpr instead of eval()? eval() has known escape vectors that allow
+# arbitrary code execution even with restricted __builtins__. numexpr parses
+# through a restricted grammar limited to mathematical operations, making it
+# the safe choice for calculator tools.
 # =============================================================================
 
 from pathlib import Path

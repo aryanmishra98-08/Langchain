@@ -2,16 +2,19 @@
 Complete Multi-Agent Knowledge Worker System
 
 A three-agent pipeline that researches, writes, and evaluates documentation
-in an iterative loop:
-  1. Researcher (create_agent) — gathers information from web, docs, examples
-  2. Writer (create_agent)     — creates structured markdown documentation
-  3. Evaluator (LCEL chain)    — scores on 5 dimensions and approves/rejects
+in an iterative quality loop:
 
-The Writer and Evaluator loop up to max_iterations times until the Evaluator
-returns approved=true (overall_score >= 8.0) or the limit is reached.
-Output is saved to knowledge_worker_output.md.
+  1. Researcher (create_agent) — gathers information using web, docs, and
+     examples search tools; produces a research findings summary
+  2. Writer (create_agent)     — turns findings into structured markdown
+     documentation using structure, formatting, and code example tools
+  3. Evaluator (LCEL chain)    — scores the document on 5 dimensions
+     (completeness, clarity, technical accuracy, examples, structure)
+     and either approves (overall_score >= 8.0) or requests revisions
 
-LangChain 1.0: create_agent replaces create_react_agent + AgentExecutor.
+The Writer–Evaluator loop repeats up to max_iterations times. The final
+document is saved to knowledge_worker_output.md.
+
 Input:  {"messages": [{"role": "user", "content": "..."}]}
 Output: result["messages"][-1].content
 """

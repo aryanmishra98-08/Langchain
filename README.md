@@ -1,11 +1,10 @@
-# LangChain Agents & Multi-Agent Systems: Advanced Training Guide
+# LangChain Agents & Multi-Agent Systems
 
 **Target Audience:** Developers with LangChain basics + RAG experience  
 **Level:** Advanced  
-**Prerequisites:** Python 3.10+, LangChain fundamentals, RAG concepts  
-**LangChain Version:** 0.3.x (Classic AgentExecutor pattern)
+**Prerequisites:** Python 3.10+, LangChain fundamentals, RAG concepts
 
-> **Note on LangGraph:** This guide uses the classic `AgentExecutor` pattern. LangGraph (the modern orchestration framework that supersedes manual multi-agent code) is covered in a later session.
+> **Note on LangGraph:** This guide uses the `create_agent` pattern. LangGraph (the modern state-machine orchestration framework) is covered in a later session.
 
 ---
 
@@ -24,31 +23,27 @@
 
 ## Setup & Installation
 
-All examples in this guide assume the following package versions:
-
 ```bash
-pip install \
-  "langchain>=0.3,<0.4" \
-  "langchain-core>=0.3" \
-  "langchain-openai>=0.2" \
-  "langchain-community>=0.3" \
-  "langchain-chroma>=0.1.4" \
-  "langchainhub>=0.1.20" \
-  "numexpr>=2.10" \
-  "pydantic>=2.7"
-
-export OPENAI_API_KEY="your-key-here"
+pip install -r requirements.txt
 ```
 
-See [requirements.txt](requirements.txt) for the pinned dependency list.
+See [requirements.txt](requirements.txt) for the full pinned dependency list.
 
-> **Why separate packages?** Since LangChain 0.2 (mid-2024), the framework was split: `langchain-core` (stable interfaces), `langchain` (orchestration), and provider-specific packages (`langchain-openai`, `langchain-chroma`, etc.). Always import from the most specific package available.
+Copy `keys/.env.example` to `keys/.env` and fill in your Azure OpenAI credentials:
+
+```
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=...
+AZURE_OPENAI_CHAT_DEPLOYMENT=...
+AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=...
+AZURE_OPENAI_API_VERSION=...
+```
 
 ---
 
 ## 1. Conceptual Foundations
 
-→ Examples: [examples/01_foundations/](examples/01_foundations/)
+→ Examples: [examples/Foundations/](examples/Foundations/)
 
 ### 1.1 Agent vs Chain: Understanding the Difference
 
@@ -59,7 +54,7 @@ See [requirements.txt](requirements.txt) for the pinned dependency list.
 - Lower cost, faster execution
 - Better for well-defined workflows
 
-A chain using LCEL (LangChain Expression Language) looks like this — see [examples/01_foundations/01_chain_example.py](examples/01_foundations/01_chain_example.py):
+A chain using LCEL (LangChain Expression Language) looks like this — see [examples/Foundations/1_LCELChain.py](examples/Foundations/1_LCELChain.py):
 
 ```python
 chain = (
@@ -67,19 +62,19 @@ chain = (
     | llm
     | StrOutputParser()
 )
-result = chain.invoke({"text": "Long text..."})  # Always follows same path
+result = chain.invoke({"text": "Long text..."})  # Always follows the same path
 ```
 
-> **Migration note:** The legacy `LLMChain` class is deprecated and scheduled for removal. LCEL (the `|` pipe operator) is now the standard way to compose chains. It provides better streaming, batching, async support, and observability.
+> **Why LCEL?** The `|` pipe operator composes Runnables and is the standard way to build chains. It provides better streaming, batching, async support, and observability than class-based alternatives.
 
 **Agent:**
 - Dynamic reasoning and decision-making
 - Non-deterministic control flow
-- Can choose tools based on context
+- Chooses tools based on context
 - Higher cost, variable execution time
 - Better for open-ended tasks requiring judgment
 
-See [examples/01_foundations/02_agent_example.py](examples/01_foundations/02_agent_example.py) for a basic ReAct agent that dynamically selects between search and calculator tools.
+See [examples/Foundations/2_ReactAgent.py](examples/Foundations/2_ReactAgent.py) for a basic agent that dynamically selects between search and calculator tools.
 
 **Key Decision Matrix:**
 
@@ -93,7 +88,7 @@ See [examples/01_foundations/02_agent_example.py](examples/01_foundations/02_age
 
 ### 1.2 How Agents Work: The ReAct Pattern
 
-LangChain agents typically use the **ReAct** (Reasoning + Acting) pattern:
+LangChain agents use the **ReAct** (Reasoning + Acting) pattern:
 
 ```
 Thought: I need to find the population of NYC
@@ -156,7 +151,7 @@ calculator_tool = Tool(
 
 ## 2. Tools and Tool Creation
 
-→ Examples: [examples/02_tools/](examples/02_tools/)
+→ Examples: [examples/AgentTools/](examples/AgentTools/)
 
 ### 2.1 Understanding Tools
 
@@ -168,7 +163,7 @@ A tool in LangChain is a callable interface that:
 
 ### 2.2 Creating Tools from Python Functions
 
-**Method 1: Using the `@tool` decorator** — see [examples/02_tools/01_tool_decorator.py](examples/02_tools/01_tool_decorator.py)
+**Method 1: Using the `@tool` decorator** — see [examples/AgentTools/1_ToolDecorator.py](examples/AgentTools/1_ToolDecorator.py)
 
 The docstring becomes the tool description; type hints define the input schema:
 
@@ -184,7 +179,7 @@ def multiply(a: float, b: float) -> str:
     return str(a * b)
 ```
 
-**Method 2: Using the `Tool` class directly** — see [examples/02_tools/02_tool_class.py](examples/02_tools/02_tool_class.py)
+**Method 2: Using the `Tool` class directly** — see [examples/AgentTools/2_ToolClass.py](examples/AgentTools/2_ToolClass.py)
 
 ```python
 db_tool = Tool(
@@ -194,7 +189,9 @@ db_tool = Tool(
 )
 ```
 
-**Method 3: Using `StructuredTool` for complex inputs (Pydantic v2)** — see [examples/02_tools/03_structured_tool.py](examples/02_tools/03_structured_tool.py)
+**Method 3: Using `StructuredTool` for complex inputs** — see [examples/AgentTools/3_StructuredTool.py](examples/AgentTools/3_StructuredTool.py)
+
+Use this when your tool accepts more than one parameter or needs field-level validation:
 
 ```python
 class SearchInput(BaseModel):
@@ -209,20 +206,26 @@ advanced_search_tool = StructuredTool.from_function(
 )
 ```
 
-> **Migration note:** Imports moved from `langchain.tools` to `langchain_core.tools`. The `langchain.tools` path still works via re-export but emits deprecation warnings. `StructuredTool.from_function()` is the recommended factory; direct constructor usage is being phased out.
+**Choosing a method:**
+
+| Scenario | Method |
+|----------|--------|
+| Single string input, new function | `@tool` decorator |
+| Wrapping an existing function | `Tool` class |
+| Multiple typed parameters | `StructuredTool` with Pydantic |
 
 ### 2.3 Best Practices for Tool Creation
 
 **1. Clear, Specific Descriptions**
 
 ```python
-# ❌ Bad
+# ❌ Bad — agent cannot reliably select this
 @tool
 def get_data(id: str) -> str:
     """Gets data."""
     return fetch(id)
 
-# ✅ Good
+# ✅ Good — specific, actionable
 @tool
 def get_user_profile(user_id: str) -> str:
     """Retrieves user profile information including name, email, and registration date.
@@ -246,7 +249,7 @@ def safe_calculator(expression: str) -> str:
         return f"Error: Could not evaluate expression. {str(e)}"
 ```
 
-> **Why numexpr?** `eval()` — even with restricted `__builtins__` — has known escape vectors and is unsafe for production. `numexpr` parses expressions through a restricted grammar that only supports mathematical operations, making it the standard choice for production calculator tools.
+> **Why numexpr?** `eval()` — even with restricted `__builtins__` — has known escape vectors. `numexpr` parses expressions through a restricted grammar that only allows mathematical operations, making it the safe choice for calculator tools.
 
 **3. Consistent Return Format**
 
@@ -265,177 +268,164 @@ def weather_lookup(city: str) -> str:
 
 ### 2.4 Built-in Tool Examples
 
-See [examples/02_tools/04_builtin_tools.py](examples/02_tools/04_builtin_tools.py) for ready-to-use implementations of:
+See [examples/AgentTools/4_BuiltinTools.py](examples/AgentTools/4_BuiltinTools.py) for ready-to-use implementations of:
 
 - **Calculator Tool** — `numexpr`-based sandboxed math evaluation
 - **Web Search Tool** — `DuckDuckGoSearchRun` (requires internet)
-- **Retrieval Tool** — `create_retriever_tool` from a Chroma vector store (requires `OPENAI_API_KEY`)
+- **Retrieval Tool** — `create_retriever_tool` from a Chroma vector store
 
-> **Migration notes:**
-> - `Chroma` moved from `langchain_community.vectorstores` to its own package: `pip install langchain-chroma` and `from langchain_chroma import Chroma`.
-> - `create_retriever_tool` moved from `langchain.tools.retriever` to `langchain_core.tools`.
-> - Use `text-embedding-3-small` (cheaper, better) instead of the legacy default `text-embedding-ada-002`.
-
-> **Note on PythonREPL:** The legacy `PythonREPL` from `langchain_community.utilities` (or its newer home in `langchain_experimental`) executes arbitrary Python code and is a significant security risk. Avoid exposing it to agents handling untrusted input. Use focused tools like `numexpr`-based calculators instead.
+> **Note on PythonREPL:** `PythonREPL` from `langchain_experimental` executes arbitrary Python code and is a significant security risk. Avoid it for agents handling untrusted input. Use focused tools like `numexpr`-based calculators instead.
 
 ---
 
 ## 3. Single Agent Development
 
-→ Examples: [examples/03_single_agent/](examples/03_single_agent/)
+→ Examples: [examples/SingleAgent/](examples/SingleAgent/)
 
 ### 3.1 Building Your First Agent
 
-See [examples/03_single_agent/01_first_agent.py](examples/03_single_agent/01_first_agent.py) for a complete working agent with:
+See [examples/SingleAgent/1_FirstAgent.py](examples/SingleAgent/1_FirstAgent.py) for a complete working agent with:
 - A `calculator` tool (numexpr, production-safe)
 - A `company_knowledge` retrieval tool (Chroma vector store)
 - Three test queries covering: calculation only, retrieval only, and both tools combined
 
-### 3.2 Agent Types in LangChain
-
-See [examples/03_single_agent/02_agent_types.py](examples/03_single_agent/02_agent_types.py) for side-by-side implementations of all three types.
-
-**1. ReAct Agent** — works with any LLM via prompt-engineered text parsing:
+The standard pattern:
 
 ```python
-from langchain.agents import create_react_agent
-from langchain import hub
+from langchain.agents import create_agent
 
-prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm=llm, tools=tools, prompt=prompt)
-```
-
-**2. Tool Calling Agent** — recommended for modern LLMs, uses native tool-calling API:
-
-```python
-from langchain.agents import create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
-
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant."),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
-agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
-```
-
-**3. Structured Chat Agent** — for multi-input tools without native tool-calling support:
-
-```python
-from langchain.agents import create_structured_chat_agent
-
-prompt = hub.pull("hwchase17/structured-chat-agent")
-agent = create_structured_chat_agent(llm=llm, tools=tools, prompt=prompt)
-```
-
-> **Migration note:** `create_openai_functions_agent` is deprecated. Use `create_tool_calling_agent` instead — it's model-agnostic (works with OpenAI, Anthropic, Google, etc.) and uses each provider's native tool-calling API. This is more reliable than text-parsed ReAct and produces fewer parsing errors.
-
-**Choosing an agent type:**
-
-| Agent Type | Best For | Reliability |
-|------------|----------|-------------|
-| ReAct | Open-source / non-tool-calling LLMs | ⚠️ Medium (text parsing) |
-| Tool Calling | Modern OpenAI / Anthropic / Google models | ✅ High (native API) |
-| Structured Chat | Multi-input tools on legacy models | ⚠️ Medium |
-
-### 3.3 Agent Configuration
-
-See [examples/03_single_agent/03_agent_config.py](examples/03_single_agent/03_agent_config.py) for an annotated `AgentExecutor` with all key parameters.
-
-**Key `AgentExecutor` parameters:**
-
-```python
-agent_executor = AgentExecutor(
-    agent=agent,
+agent = create_agent(
+    model=llm,
     tools=tools,
-    verbose=True,                    # Show agent reasoning
-    handle_parsing_errors=True,      # Gracefully handle LLM output errors
-    max_iterations=10,               # Prevent infinite loops
-    max_execution_time=60,           # Timeout in seconds
-    early_stopping_method="force",   # "force" returns "Stopped" message
-    return_intermediate_steps=True   # Get full reasoning trace in output
+    system_prompt="You are a helpful assistant. Use the available tools to answer questions accurately.",
+)
+
+result = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
+print(result["messages"][-1].content)
+```
+
+### 3.2 Agent Types
+
+See [examples/SingleAgent/2_AgentTypes.py](examples/SingleAgent/2_AgentTypes.py).
+
+`create_agent` uses the model's native tool-calling API (structured JSON), which is more reliable than text-parsed alternatives. Customize behavior via `system_prompt`:
+
+```python
+# Standard agent
+standard_agent = create_agent(model=llm, tools=tools, system_prompt="You are a helpful assistant.")
+
+# Specialist agent with custom behavior
+specialist_agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt=(
+        "You are a math specialist. When given a calculation, always use the "
+        "calculator tool and show the expression you evaluated."
+    ),
 )
 ```
 
-> **Note on `early_stopping_method`:** Only `"force"` is reliably supported. The `"generate"` option requires the agent class to implement a special return method and is not supported by all agent types.
+> **For open-source LLMs without native tool-calling:** LangGraph's prebuilt `create_react_agent` is the fallback. This is covered in the LangGraph session.
+
+### 3.3 Agent Configuration
+
+See [examples/SingleAgent/3_AgentConfig.py](examples/SingleAgent/3_AgentConfig.py) for all `create_agent` parameters with inline explanations.
+
+**Key parameters:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| `model` | LLM instance or model string |
+| `tools` | List of tool functions / Tool objects |
+| `system_prompt` | Agent instructions |
+| `name` | Identifier for tracing in multi-agent systems |
+| `middleware` | List of `BaseMiddleware` for observability and flow control |
+| `state_schema` | Custom TypedDict extending AgentState |
+| `response_format` | Constrain output to a specific schema |
+
+**Using middleware and name:**
+
+```python
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="You are a helpful assistant.",
+    name="my_agent",                              # shows up in LangSmith traces
+    middleware=[MonitoringMiddleware(monitor)],   # see ProductionPatterns/5_Monitoring.py
+)
+```
+
+**Accessing the reasoning trace:**
+
+```python
+result = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
+
+for msg in result["messages"]:
+    tool_calls = getattr(msg, "tool_calls", None)
+    if tool_calls:
+        for tc in tool_calls:
+            print(f"Tool call: {tc['name']}({tc['args']})")
+    elif msg.content:
+        print(f"[{type(msg).__name__}] {msg.content}")
+```
 
 ---
 
 ## 4. Agent Reasoning & Transparency
 
-→ Examples: [examples/04_reasoning/](examples/04_reasoning/)
+→ Examples: [examples/AgentReasoning&Observability/](examples/AgentReasoning&Observability/)
 
-### 4.1 Understanding Agent Thought Process
+### 4.1 Reading the Reasoning Trace
 
-See [examples/04_reasoning/01_verbose_mode.py](examples/04_reasoning/01_verbose_mode.py).
+See [examples/AgentReasoning&Observability/1_VerboseMode.py](examples/AgentReasoning&Observability/1_VerboseMode.py).
 
-Setting `verbose=True` on the `AgentExecutor` prints the full ReAct trace to stdout:
+`result["messages"]` contains the full conversation, including each tool call and its result. Iterating over this list gives you the Thought → Action → Observation → Answer sequence:
 
 ```
-> Entering new AgentExecutor chain...
-I need to find the company's revenue first, then the number of employees, then divide.
-
-Action: company_knowledge
-Action Input: revenue
-
-Observation: Annual revenue for 2023 was $5 million.
-Thought: Now I need to find the number of employees.
-
-Action: company_knowledge
-Action Input: employees
-
-Observation: We have 50 employees across 3 offices.
-Thought: Now I can calculate revenue per employee.
-
-Action: calculator
-Action Input: 5000000 / 50
-
-Observation: The result is: 100000.0
-Thought: I now know the final answer.
-Final Answer: The revenue per employee is $100,000.
-
-> Finished chain.
+HumanMessage   — user's original question
+AIMessage      — agent reasoning + tool_calls=[{name, args}]
+ToolMessage    — tool result (observation)
+...
+AIMessage      — final answer (no tool_calls, just content)
 ```
 
-### 4.2 Capturing Intermediate Steps
+### 4.2 Extracting Intermediate Steps
 
-See [examples/04_reasoning/02_intermediate_steps.py](examples/04_reasoning/02_intermediate_steps.py).
+See [examples/AgentReasoning&Observability/2_IntermediateSteps.py](examples/AgentReasoning&Observability/2_IntermediateSteps.py).
 
-Set `return_intermediate_steps=True` to access the reasoning chain programmatically. Each step is a `(AgentAction, observation)` tuple:
+Pair AIMessage tool calls with their corresponding ToolMessages using `tool_call_id`:
 
 ```python
-agent_executor = AgentExecutor(agent=agent, tools=tools, return_intermediate_steps=True)
-result = agent_executor.invoke({"input": "What is the revenue per employee?"})
-
-for step in result['intermediate_steps']:
-    action, observation = step
-    print(f"Action: {action.tool}")
-    print(f"Input: {action.tool_input}")
-    print(f"Output: {observation}")
+for step in extract_steps(result["messages"]):
+    print(f"Action: {step['tool']}")
+    print(f"Input: {step['input']}")
+    print(f"Output: {step['output']}")
 ```
+
+This enables post-hoc auditing, custom metrics, and UIs that show reasoning progress.
 
 ### 4.3 Custom Callbacks for Monitoring
 
-See [examples/04_reasoning/03_custom_callbacks.py](examples/04_reasoning/03_custom_callbacks.py) for a `CustomAgentCallbackHandler` that captures every action and finish event.
+See [examples/AgentReasoning&Observability/3_CustomCallbacks.py](examples/AgentReasoning&Observability/3_CustomCallbacks.py) for a `CustomAgentCallbackHandler`.
 
 Callbacks intercept the following lifecycle events:
 - `on_agent_action` — called when the agent selects a tool
 - `on_agent_finish` — called when the agent produces its final answer
 - `on_tool_start` — called just before tool execution begins
-- `on_tool_end` — called with the tool's string output
+- `on_tool_end` — called with the tool's output
 
 ```python
-result = agent_executor.invoke(
+result = agent.invoke(
     {"input": "..."},
     config={"callbacks": [callback_handler]}
 )
 ```
 
-> **Migration note:** `from langchain.callbacks.base` → `from langchain_core.callbacks`. Callbacks are now passed via `config={"callbacks": [...]}` in `.invoke()` calls (the LCEL standard), though direct `callbacks=[...]` parameters still work for backward compatibility.
+> **Callbacks vs Middleware:** Callbacks fire per-event and are useful for dev-time inspection and third-party integrations. For production flow control (deduplication, loop detection, metrics), prefer middleware — it has access to the full agent state at each step.
 
-### 4.4 Logging for Production
+### 4.4 Structured Logging for Production
 
-See [examples/04_reasoning/04_production_logging.py](examples/04_reasoning/04_production_logging.py) for a `ProductionAgentCallback` that writes structured log entries to a timestamped file with `verbose=False` for clean console output.
+See [examples/AgentReasoning&Observability/4_ProductionLogging.py](examples/AgentReasoning&Observability/4_ProductionLogging.py) for a `ProductionAgentCallback` that writes structured log entries to a timestamped file.
 
 ```python
 logging.basicConfig(
@@ -445,30 +435,30 @@ logging.basicConfig(
 )
 ```
 
-> **Pro tip:** For production observability, consider LangSmith (`LANGCHAIN_TRACING_V2=true` environment variable). It captures full traces — including LLM calls, token usage, and latencies — without writing custom callbacks.
+> **Pro tip:** For zero-code full tracing (LLM calls, token usage, latencies), set `LANGCHAIN_TRACING_V2=true` to enable LangSmith.
 
 ---
 
 ## 5. Multi-Agent Architectures
 
-→ Examples: [examples/05_multi_agent/](examples/05_multi_agent/)
+→ Examples: [examples/MultiAgent&Orchestration/](examples/MultiAgent&Orchestration/)
 
 ### 5.1 Pattern 1: Planner + Worker
 
-See [examples/05_multi_agent/01_planner_worker.py](examples/05_multi_agent/01_planner_worker.py).
+See [examples/MultiAgent&Orchestration/1_PlannerWorker.py](examples/MultiAgent&Orchestration/1_PlannerWorker.py).
 
-One agent (LCEL chain) plans; another (AgentExecutor) executes. The Planner returns a numbered list; the Worker receives the full plan as its task:
+One component (an LCEL chain) plans; another (a `create_agent`) executes. The Planner returns a numbered list; the Worker receives the full plan as its task:
 
 ```
 STEP 1: PLANNING  →  Planner chain produces numbered plan
-STEP 2: EXECUTION →  Worker agent executes each step with tools
+STEP 2: EXECUTION →  Worker agent executes the plan with tools
 ```
 
-The Planner is a pure LCEL chain (no `AgentExecutor` needed for text-only planning). The Worker uses `fetch_data`, `process_data`, and `generate_report` tools.
+The Planner is a pure LCEL chain (no agent needed for text-only planning). The Worker uses `fetch_data`, `process_data`, and `generate_report` tools.
 
 ### 5.2 Pattern 2: Researcher + Writer
 
-See [examples/05_multi_agent/02_researcher_writer.py](examples/05_multi_agent/02_researcher_writer.py).
+See [examples/MultiAgent&Orchestration/2_ResearcherWriter.py](examples/MultiAgent&Orchestration/2_ResearcherWriter.py).
 
 Domain-separated agents with different tool sets:
 - **Researcher** tools: `search_papers`, `search_news`, `search_statistics`
@@ -481,7 +471,7 @@ PHASE 2: WRITING   →  Writer receives findings and produces article
 
 ### 5.3 Pattern 3: Critic + Builder
 
-See [examples/05_multi_agent/03_critic_builder.py](examples/05_multi_agent/03_critic_builder.py).
+See [examples/MultiAgent&Orchestration/3_CriticBuilder.py](examples/MultiAgent&Orchestration/3_CriticBuilder.py).
 
 An iterative feedback loop using two LCEL chains:
 - **Builder** generates code from requirements (or revises based on feedback)
@@ -494,7 +484,19 @@ result = critic_builder_loop(requirements, max_iterations=3)
 # result["status"] → "approved" or "max_iterations_reached"
 ```
 
-### 5.4 Communication Patterns
+### 5.4 Pattern 4: Manager + Workers (Hierarchical)
+
+See [examples/MultiAgent&Orchestration/4_ManagerWorker.py](examples/MultiAgent&Orchestration/4_ManagerWorker.py) for a `ManagerWorkerSystem` that implements the hierarchical pattern.
+
+```
+        Manager
+       /   |   \
+Worker1 Worker2 Worker3
+```
+
+The Manager LCEL chain parses a high-level task into `ASSIGN: worker_name | task_description` directives and dispatches subtasks to named Worker agents.
+
+### 5.5 Communication Patterns
 
 **Pattern A: Sequential (Pipeline)**
 ```
@@ -508,101 +510,106 @@ Agent1 → Result → Agent2 → Result → Agent3
 Worker1 Worker2 Worker3
 ```
 
-**Pattern C: Peer-to-Peer (Debate)**
+**Pattern C: Iterative (Feedback Loop)**
 ```
-Agent1 ←→ Agent2
-   ↓         ↓
-     Mediator
+Builder → Critic → (approved?) → done
+              ↓ (needs work)
+           Builder (revises)
 ```
 
-See [examples/05_multi_agent/04_manager_worker.py](examples/05_multi_agent/04_manager_worker.py) for a `ManagerWorkerSystem` class that implements the hierarchical pattern. The Manager LCEL chain parses a high-level task into `ASSIGN: worker_name | task_description` directives and dispatches subtasks to named Worker AgentExecutors.
+**Passing output between agents:**
+
+```python
+result1 = agent1.invoke({"messages": [{"role": "user", "content": task}]})
+output  = result1["messages"][-1].content
+result2 = agent2.invoke({"messages": [{"role": "user", "content": output}]})
+```
 
 ---
 
 ## 6. Production Debugging & Pitfalls
 
-→ Examples: [examples/06_production/](examples/06_production/)
+→ Examples: [examples/ProductionPatterns/](examples/ProductionPatterns/)
 
-### 6.1 Common Issues and Solutions
+### 6.1 Issue 1: Over-invocation of Tools
 
-#### Issue 1: Over-invocation of Tools
-
-See [examples/06_production/01_over_invocation.py](examples/06_production/01_over_invocation.py).
+See [examples/ProductionPatterns/1_OverInvocation.py](examples/ProductionPatterns/1_OverInvocation.py).
 
 **Problem:** Agent calls the same tool repeatedly with similar inputs.
 
-**Symptoms:**
-```
-Action: search  →  Observation: $5M
-Action: search  →  Observation: $5M   (same)
-Action: search  →  Observation: $5M   (same)
-```
+**Solutions:**
+
+1. **Improve tool description** — add `"IMPORTANT: Only call this once per unique query."` to the docstring
+2. **`DeduplicationMiddleware`** — tracks `(tool, input)` pairs and raises if a duplicate is seen
+3. **System prompt reinforcement** — explicit rules in `system_prompt`
+
+### 6.2 Issue 2: Runaway Loops
+
+See [examples/ProductionPatterns/2_RunawayLoops.py](examples/ProductionPatterns/2_RunawayLoops.py).
+
+**Problem:** Agent enters a loop without making progress when tools consistently return no results.
 
 **Solutions:**
 
-1. **Limit iterations** — `AgentExecutor(max_iterations=5, ...)`
-2. **`DeduplicationCallback`** — raises `ValueError` when the same `(tool, input)` pair is seen again
-3. **Improve tool description** — add `"IMPORTANT: Only call this once per unique query."` to the docstring
+1. **`LoopGuardMiddleware`** — detects when the same tool observation repeats and raises
+2. **Enhanced system prompt** — explicit rules: "If a tool returns 'No results', DO NOT retry the same query"
+3. **Async timeout wrapper** — `asyncio.wait_for` for wall-clock limits
 
-#### Issue 2: Runaway Loops
+### 6.3 Issue 3: Parsing Errors
 
-See [examples/06_production/02_runaway_loops.py](examples/06_production/02_runaway_loops.py).
+See [examples/ProductionPatterns/3_ParsingErrors.py](examples/ProductionPatterns/3_ParsingErrors.py).
 
-**Problem:** Agent enters an infinite loop without making progress when tools consistently return no results.
+**Problem:** Text-parsed agents raise `OutputParserException` when the LLM produces malformed output.
 
-**Solutions:**
+**Solution:** `create_agent` uses the model's native tool-calling API (structured JSON). There is no freeform text to parse, so parsing errors are eliminated by design. For open-source LLMs without tool-calling support, LangGraph's `create_react_agent` with `handle_parsing_errors` is the fallback (covered in the LangGraph session).
 
-1. **Timeout** — `AgentExecutor(max_execution_time=60, ...)`
-2. **`ProgressCallback`** — detects when the same observation appears `max_no_progress` times in a row and raises `ValueError`
-3. **Enhanced system prompt** — explicit rules: "If a tool returns 'No results', DO NOT retry the same query"
+### 6.4 Issue 4: Tool Execution Errors
 
-#### Issue 3: Parsing Errors
-
-See [examples/06_production/03_parsing_errors.py](examples/06_production/03_parsing_errors.py).
-
-**Problem:** LLM returns malformed action/input text, raising `OutputParserException`.
-
-**Solutions:**
-
-1. **`handle_parsing_errors=True`** — automatic retry on parse failures
-2. **Custom error handler** — a callable that returns a corrective instruction string
-3. **`create_tool_calling_agent`** — eliminates text-parsing errors entirely (native JSON output)
-
-> **Recommendation:** Most parsing errors disappear when you switch from `create_react_agent` (text-parsed) to `create_tool_calling_agent` (native structured output). Use ReAct only when your LLM doesn't support tool calling.
-
-#### Issue 4: Tool Execution Errors
-
-See [examples/06_production/04_tool_errors.py](examples/06_production/04_tool_errors.py).
+See [examples/ProductionPatterns/4_ToolErrors.py](examples/ProductionPatterns/4_ToolErrors.py).
 
 **Problem:** Tools crash (e.g., `ZeroDivisionError`) or stall (external API timeouts).
 
 **Solutions:**
 
 1. **`safe_calculator`** — per-exception-type error messages returned as strings
-2. **`validated_calculator`** — pre-validate the expression before passing to `numexpr`
+2. **`validated_calculator`** — pre-validate the expression before evaluating
 3. **`run_with_timeout`** — cross-platform timeout via `concurrent.futures.ThreadPoolExecutor`
 
-> **Migration note:** The `signal.SIGALRM` pattern from older guides is Unix-only. Use `concurrent.futures` for cross-platform compatibility.
+> **Cross-platform note:** `signal.SIGALRM` is Unix-only. `concurrent.futures` works on Windows, Linux, and macOS.
 
-### 6.2 Monitoring and Observability
+**Middleware hooks available on `BaseMiddleware`:**
 
-See [examples/06_production/05_monitoring.py](examples/06_production/05_monitoring.py) for a complete `AgentMonitor` + `MonitoringCallback` implementation tracking:
+| Hook | When it fires |
+|------|---------------|
+| `before_model(state, config)` | Before each LLM call |
+| `after_model(state, config)` | After each LLM call |
+| `after_tool(state, config)` | After each tool execution |
+| `on_error(error, state, config)` | On any exception in the loop |
+
+Each hook receives the full agent state dict and must return `(state, config)`.
+
+### 6.5 Monitoring and Observability
+
+See [examples/ProductionPatterns/5_Monitoring.py](examples/ProductionPatterns/5_Monitoring.py) for `AgentMonitor` + `MonitoringMiddleware` tracking:
 - Total calls, success rate, average execution time
 - Per-tool invocation counts
 - Last 5 error records with timestamps
 
 ```python
 monitor = AgentMonitor()
-monitoring_callback = MonitoringCallback(monitor)
-agent_executor = AgentExecutor(agent=agent, tools=tools, callbacks=[monitoring_callback])
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    middleware=[MonitoringMiddleware(monitor)],
+)
 
 # After running queries...
 print(monitor.get_report())
 ```
 
-### 6.3 Guardrails and Constraints
+### 6.6 Guardrails and Constraints
 
-See [examples/06_production/06_guardrails.py](examples/06_production/06_guardrails.py) for a `GuardrailAgent` wrapper with:
+See [examples/ProductionPatterns/6_Guardrails.py](examples/ProductionPatterns/6_Guardrails.py) for a `GuardrailAgent` wrapper with:
 - **Pre-execution input checks:** max query length, prohibited term list
 - **Post-execution output checks:** PII detection (email/phone regex patterns)
 
@@ -612,22 +619,22 @@ rules = {
     'prohibited_terms': ['hack', 'exploit', 'bypass'],
     'allow_pii': False
 }
-guarded_agent = GuardrailAgent(agent_executor, rules)
+guarded_agent = GuardrailAgent(base_agent, rules)
 ```
 
 ---
 
 ## 7. Advanced Capstone Project
 
-→ Example: [examples/07_capstone/capstone_knowledge_worker.py](examples/07_capstone/capstone_knowledge_worker.py)
+→ Example: [examples/CompleteKnowledgeWorkerSystem.py](examples/CompleteKnowledgeWorkerSystem.py)
 
 ### Multi-Agent Knowledge Worker System
 
 **Scenario:** A complete three-agent pipeline that researches, writes, and evaluates documentation in an iterative quality loop.
 
 **Agents:**
-1. **Researcher** (`AgentExecutor`) — gathers information using `search_web`, `search_documentation`, `search_examples` tools
-2. **Writer** (`AgentExecutor`) — creates structured markdown documentation using `create_document_structure`, `format_markdown`, `add_code_examples` tools
+1. **Researcher** (`create_agent`) — gathers information using `search_web`, `search_documentation`, `search_examples` tools
+2. **Writer** (`create_agent`) — creates structured markdown documentation using `create_document_structure`, `format_markdown`, `add_code_examples` tools
 3. **Evaluator** (LCEL chain) — scores the document on 5 dimensions and approves or rejects it
 
 **Pipeline:**
@@ -654,51 +661,15 @@ Approval threshold: `overall_score >= 8.0`. Final document is saved to `knowledg
 
 ```bash
 pip install -r requirements.txt
-export OPENAI_API_KEY="your-key-here"
-python examples/07_capstone/capstone_knowledge_worker.py
-```
-
-### Expected Output Flow
-
-```
-================================================================================
-KNOWLEDGE WORKER SYSTEM: LangChain Agents: Creating and Using Tools
-================================================================================
-
-================================================================================
-PHASE 1: RESEARCH
-================================================================================
-
-> Entering new AgentExecutor chain...
-...
-📚 Research Complete. Findings length: 1247 chars
-
-================================================================================
-PHASE 2: WRITING (Iteration 1)
-================================================================================
-...
-📝 Document Complete. Length: 2134 chars
-
-================================================================================
-PHASE 3: EVALUATION (Iteration 1)
-================================================================================
-
-🎯 Evaluation Results:
-   Overall Score: 7.2/10
-   ...
-   Approved: False
-   Feedback: Add more code examples in sections 2 and 3...
-
-🔄 Document needs improvement. Starting iteration 2...
-...
-✅ Documentation APPROVED and ready for publication!
+# Fill in keys/.env first
+python examples/CompleteKnowledgeWorkerSystem.py
 ```
 
 ### Extension Ideas
 
 1. **Add More Agents:** SEO Optimizer, Code Tester, Translator
 2. **Enhanced Communication:** Shared memory between agents, parallel execution
-3. **Production Features:** Database persistence, API endpoints, real-time progress updates, human-in-the-loop approval
+3. **Production Features:** Database persistence, API endpoints, real-time progress, human-in-the-loop approval
 
 ---
 
@@ -709,74 +680,50 @@ PHASE 3: EVALUATION (Iteration 1)
 - **LangChain Concepts**: https://python.langchain.com/docs/concepts/
 - **Agents Guide**: https://python.langchain.com/docs/how_to/#agents
 - **Tools Guide**: https://python.langchain.com/docs/how_to/#tools
-- **AgentExecutor**: https://python.langchain.com/docs/how_to/agent_executor/
-- **LCEL (LangChain Expression Language)**: https://python.langchain.com/docs/concepts/lcel/
-- **LangSmith (observability)**: https://docs.smith.langchain.com/
-
-### Modern Convention Quick Reference
-
-| Legacy (avoid) | Modern (use) |
-|---|---|
-| `LLMChain` | LCEL: `prompt \| llm \| StrOutputParser()` |
-| `chain.run(...)` | `chain.invoke({...})` |
-| `from langchain.tools import tool` | `from langchain_core.tools import tool` |
-| `from langchain.prompts import ...` | `from langchain_core.prompts import ...` |
-| `from langchain.schema import ...` | `from langchain_core.messages import ...` |
-| `from langchain.callbacks.base import ...` | `from langchain_core.callbacks import ...` |
-| `from langchain_community.vectorstores import Chroma` | `from langchain_chroma import Chroma` |
-| `create_openai_functions_agent` | `create_tool_calling_agent` |
-| `eval()` for math | `numexpr.evaluate()` |
-| `signal.SIGALRM` timeouts | `concurrent.futures` |
-| `text-embedding-ada-002` | `text-embedding-3-small` |
+- **LCEL**: https://python.langchain.com/docs/concepts/lcel/
+- **LangSmith**: https://docs.smith.langchain.com/
 
 ### Best Practices
 
-1. **Start Simple:** Begin with single agent, add complexity gradually
-2. **Clear Tool Descriptions:** Crucial for agent decision-making
-3. **Monitor Everything:** Use callbacks and logging extensively (or LangSmith)
-4. **Set Limits:** Always use `max_iterations` and `max_execution_time`
-5. **Handle Errors:** Wrap tools in try-except, use `handle_parsing_errors`
-6. **Test Thoroughly:** Agents are non-deterministic, test edge cases
-7. **Cost Management:** Monitor token usage, agents can be expensive
-8. **Iterative Development:** Build → Test → Refine cycle
-9. **Prefer Tool Calling Agents:** Use `create_tool_calling_agent` over ReAct when your model supports native tool calling
-10. **Pin Versions:** LangChain APIs evolve quickly — pin minor versions in production
+1. **Start Simple:** Begin with a single agent, add complexity gradually
+2. **Write Clear Tool Descriptions:** The agent's tool selection is only as good as your descriptions
+3. **Monitor Everything:** Use middleware and logging, or enable LangSmith tracing
+4. **Set Limits:** Always configure max iterations and timeouts to prevent runaway costs
+5. **Handle Errors Gracefully:** Tools should return readable error strings, never raise
+6. **Test Thoroughly:** Agents are non-deterministic — test edge cases
+7. **Build Incrementally:** Build → Test → Refine rather than designing the full system up front
 
-### Common Pitfalls to Avoid
+### Common Pitfalls
 
-❌ **Over-reliance on agents**: Not everything needs an agent  
-❌ **Vague tool descriptions**: Leads to poor tool selection  
-❌ **No iteration limits**: Can cause runaway costs  
-❌ **Ignoring errors**: Tools should gracefully handle failures  
-❌ **Missing monitoring**: Can't debug without visibility  
-❌ **Complex multi-agent from start**: Build incrementally  
-❌ **No human oversight**: Agents make mistakes, have review processes  
-❌ **Using `eval()` in tools**: Production security risk — use `numexpr` for math  
-❌ **Mixing legacy and modern imports**: Pick `langchain_core.*` consistently  
+❌ **Over-relying on agents** — not everything needs an agent  
+❌ **Vague tool descriptions** — leads to poor tool selection  
+❌ **No iteration limits** — can cause runaway costs  
+❌ **Ignoring tool errors** — tools should always return strings, even on failure  
+❌ **Missing monitoring** — you can't debug what you can't observe  
+❌ **Starting with complex multi-agent** — build incrementally  
+❌ **No human oversight** — agents make mistakes; have review processes  
+❌ **Using `eval()` in tools** — use `numexpr` for safe math evaluation  
 
 ### Production Checklist
 
-- [ ] Error handling in all tools
-- [ ] Iteration and time limits set
-- [ ] Comprehensive logging and monitoring
-- [ ] Deduplication and loop prevention
+- [ ] Error handling in all tools (return strings, never raise)
+- [ ] Iteration and time limits configured
+- [ ] Logging and monitoring in place
+- [ ] Deduplication and loop prevention middleware
 - [ ] Cost tracking and alerts
-- [ ] Security guardrails implemented
+- [ ] Security guardrails (input validation, output PII filtering)
 - [ ] Output validation
 - [ ] Fallback mechanisms
-- [ ] Human approval for critical actions
-- [ ] A/B testing for agent changes
-- [ ] Pinned package versions
+- [ ] Human approval gates for critical actions
+- [ ] Pinned package versions in `requirements.txt`
 - [ ] LangSmith tracing enabled (or equivalent)
 
-### Advanced Topics for Further Study
+### Next Steps
 
-- **LangGraph**: Modern orchestration framework for multi-agent systems (covered in next session)
-- **Memory Systems**: Long-term memory for agents (`RunnableWithMessageHistory`)
-- **Tool Chaining**: Complex tool compositions
-- **Agent Fine-tuning**: Custom models for specific agent behaviors
+- **LangGraph**: Modern state-machine orchestration for multi-agent systems (next session)
+- **Memory Systems**: Long-term agent memory via `RunnableWithMessageHistory`
+- **Human-in-the-Loop**: Interactive agent workflows requiring human approval
 - **Distributed Agents**: Scaling across multiple instances
-- **Human-in-the-Loop**: Interactive agent workflows
 
 ---
 
@@ -785,55 +732,53 @@ PHASE 3: EVALUATION (Iteration 1)
 ```
 .
 ├── requirements.txt
-├── examples/
-│   ├── 01_foundations/
-│   │   ├── 01_chain_example.py          # LCEL chain (Section 1.1)
-│   │   └── 02_agent_example.py          # Basic ReAct agent (Sections 1.1, 1.3)
-│   ├── 02_tools/
-│   │   ├── 01_tool_decorator.py         # @tool decorator, best practices (Sections 2.2–2.3)
-│   │   ├── 02_tool_class.py             # Tool class directly (Section 2.2)
-│   │   ├── 03_structured_tool.py        # StructuredTool + Pydantic v2 (Section 2.2)
-│   │   └── 04_builtin_tools.py          # Calculator, search, retrieval (Section 2.4)
-│   ├── 03_single_agent/
-│   │   ├── 01_first_agent.py            # Complete first agent (Section 3.1)
-│   │   ├── 02_agent_types.py            # ReAct / Tool Calling / Structured Chat (Section 3.2)
-│   │   └── 03_agent_config.py           # AgentExecutor parameters (Section 3.3)
-│   ├── 04_reasoning/
-│   │   ├── 01_verbose_mode.py           # verbose=True trace (Section 4.1)
-│   │   ├── 02_intermediate_steps.py     # return_intermediate_steps (Section 4.2)
-│   │   ├── 03_custom_callbacks.py       # CustomAgentCallbackHandler (Section 4.3)
-│   │   └── 04_production_logging.py     # ProductionAgentCallback (Section 4.4)
-│   ├── 05_multi_agent/
-│   │   ├── 01_planner_worker.py         # Planner + Worker pattern (Section 5.1)
-│   │   ├── 02_researcher_writer.py      # Researcher + Writer pattern (Section 5.2)
-│   │   ├── 03_critic_builder.py         # Critic + Builder loop (Section 5.3)
-│   │   └── 04_manager_worker.py         # Hierarchical Manager-Worker (Section 5.4)
-│   ├── 06_production/
-│   │   ├── 01_over_invocation.py        # Tool over-invocation fixes (Section 6.1)
-│   │   ├── 02_runaway_loops.py          # Runaway loop fixes (Section 6.1)
-│   │   ├── 03_parsing_errors.py         # Parsing error fixes (Section 6.1)
-│   │   ├── 04_tool_errors.py            # Tool execution error fixes (Section 6.1)
-│   │   ├── 05_monitoring.py             # AgentMonitor + MonitoringCallback (Section 6.2)
-│   │   └── 06_guardrails.py             # GuardrailAgent (Section 6.3)
-│   └── 07_capstone/
-│       └── capstone_knowledge_worker.py # Full KnowledgeWorkerSystem (Section 7)
-└── keys/
+├── keys/
+│   └── .env                                     # Azure OpenAI credentials (never commit)
+└── examples/
+    ├── Foundations/
+    │   ├── 1_LCELChain.py                       # Deterministic LCEL chain
+    │   └── 2_ReactAgent.py                      # Basic agent with tool selection
+    ├── AgentTools/
+    │   ├── 1_ToolDecorator.py                   # @tool decorator, best practices
+    │   ├── 2_ToolClass.py                       # Tool class constructor
+    │   ├── 3_StructuredTool.py                  # StructuredTool with Pydantic schema
+    │   └── 4_BuiltinTools.py                    # Calculator, search, retrieval
+    ├── SingleAgent/
+    │   ├── 1_FirstAgent.py                      # Complete first agent
+    │   ├── 2_AgentTypes.py                      # Standard vs specialist agent
+    │   └── 3_AgentConfig.py                     # create_agent parameters reference
+    ├── AgentReasoning&Observability/
+    │   ├── 1_VerboseMode.py                     # Reading the reasoning trace
+    │   ├── 2_IntermediateSteps.py               # Extracting tool call/result pairs
+    │   ├── 3_CustomCallbacks.py                 # BaseCallbackHandler for event hooks
+    │   └── 4_ProductionLogging.py               # Structured file logging
+    ├── MultiAgent&Orchestration/
+    │   ├── 1_PlannerWorker.py                   # Planner chain + Worker agent
+    │   ├── 2_ResearcherWriter.py                # Domain-separated sequential agents
+    │   ├── 3_CriticBuilder.py                   # Iterative refinement loop
+    │   └── 4_ManagerWorker.py                   # Hierarchical dispatch
+    ├── ProductionPatterns/
+    │   ├── 1_OverInvocation.py                  # DeduplicationMiddleware
+    │   ├── 2_RunawayLoops.py                    # LoopGuardMiddleware + async timeout
+    │   ├── 3_ParsingErrors.py                   # Why tool-calling eliminates parse errors
+    │   ├── 4_ToolErrors.py                      # Safe error handling and timeouts
+    │   ├── 5_Monitoring.py                      # AgentMonitor + MonitoringMiddleware
+    │   └── 6_Guardrails.py                      # GuardrailAgent with PII filtering
+    └── CompleteKnowledgeWorkerSystem.py         # Capstone: full 3-agent pipeline
 ```
+
+---
 
 ## Conclusion
 
-This guide covers:
-- ✅ Difference between Agents and Chains (with modern LCEL)
-- ✅ Creating custom tools with proper descriptions and modern imports
-- ✅ Building single agents with calculator and retrieval
-- ✅ Understanding and logging agent reasoning
-- ✅ Multi-agent patterns (Planner+Worker, Researcher+Writer, Critic+Builder, Hierarchical)
-- ✅ Production debugging, monitoring, and guardrails
-- ✅ Building a complete multi-agent knowledge worker system
+This guide covers the full arc from fundamentals to production:
 
-**Next Steps:**
-1. Implement the examples in your own projects
-2. Experiment with different agent architectures
-3. Build production-ready monitoring systems
-4. **Next session: LangGraph** for advanced orchestration with state management
+- **Foundations** — when to use a chain vs an agent, how the ReAct loop works, and how tool descriptions drive selection
+- **Tools** — three creation methods (`@tool`, `Tool`, `StructuredTool`), best practices for descriptions and error handling, and built-in integrations
+- **Single Agents** — the `create_agent` pattern, customizing behavior via `system_prompt`, reading the reasoning trace, and the full parameter reference
+- **Observability** — reading `result["messages"]`, extracting intermediate steps, callbacks for dev inspection, and structured file logging
+- **Multi-Agent Patterns** — sequential pipeline, domain-separated agents, iterative refinement loop, and hierarchical dispatch
+- **Production Patterns** — over-invocation, runaway loops, parsing errors, tool execution failures, metrics middleware, and safety guardrails
+- **Capstone** — a full three-agent system combining research, writing, and iterative evaluation
 
+**Next session: LangGraph** — state-machine orchestration, persistent agent state, and parallel branches.

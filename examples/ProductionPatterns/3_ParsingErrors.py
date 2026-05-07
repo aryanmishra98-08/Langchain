@@ -1,22 +1,19 @@
 # =============================================================================
-# Section 6.3 — Production Debugging: Issue 3 — Parsing Errors
-# Topic:  LLM returns malformed action/input that raises OutputParserException.
+# Section 6.3 — Production Issue 3: Parsing Errors
+# Topic:  Why tool-calling eliminates OutputParserException by design.
 #
-# Symptoms (ReAct / text-parsed agents only):
-#   OutputParserException: Could not parse LLM output:
-#   `Action: calculator\nInput: calculate 2+2 please`
+# The problem with text-parsed agents (ReAct): the LLM must produce output
+# in an exact format like "Action: X\nAction Input: Y". Any deviation —
+# extra text, wrong case, a natural-language preamble — raises:
+#   OutputParserException: Could not parse LLM output
 #
-# Root cause: ReAct agents parse freeform text from the LLM. Any deviation
-# from the expected "Action: X\nAction Input: Y" format causes a crash.
+# create_agent avoids this entirely by using the model's native tool-calling
+# API. The LLM returns structured JSON tool calls, so there is no freeform
+# text to parse and no OutputParserException possible.
 #
-# Solutions in LangChain 1.0:
-#   1. create_agent uses tool-calling APIs (structured JSON) — parsing errors
-#      are eliminated entirely. This is the recommended approach.
-#   2. For LLMs that don't support tool-calling (open-source models), use
-#      LangGraph's prebuilt create_react_agent with handle_parsing_errors
-#      (covered in the LangGraph session).
-#
-# This file shows why create_agent solves the problem by design.
+# For open-source LLMs without tool-calling support, LangGraph's prebuilt
+# create_react_agent with handle_parsing_errors is the fallback (LangGraph
+# session covers this).
 # =============================================================================
 
 import os

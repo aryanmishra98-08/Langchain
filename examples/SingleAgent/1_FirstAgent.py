@@ -6,7 +6,6 @@
 #           2. Retrieval only
 #           3. Both tools required
 #
-# LangChain 1.0: create_agent() replaces create_react_agent + AgentExecutor.
 # Input:  {"messages": [{"role": "user", "content": "..."}]}
 # Output: result["messages"][-1].content
 # =============================================================================

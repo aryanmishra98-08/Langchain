@@ -1,18 +1,17 @@
 # =============================================================================
-# Section 6.2 — Production Debugging: Issue 2 — Runaway Loops
-# Topic:  Agents that enter an infinite loop without making progress.
+# Section 6.2 — Production Issue 2: Runaway Loops
+# Topic:  Agents that enter an infinite loop when tools return no results.
 #
 # Symptoms:
 #   Tool: search  → Observation: No results
-#   Tool: search  → Observation: No results  (repeats forever)
+#   Tool: search  → Observation: No results  (repeats, burning tokens)
 #
-# Solutions demonstrated:
-#   1. LoopGuardMiddleware — detects when the same observation repeats
-#   2. Enhanced system prompt with explicit loop-prevention rules
-#   3. Async timeout wrapper for wall-clock limits
-#
-# LangChain 1.0: max_execution_time (AgentExecutor param) is replaced by
-# wrapping agent.invoke() in asyncio.wait_for() or concurrent.futures.
+# Three solutions are demonstrated:
+#   1. LoopGuardMiddleware — in after_tool, tracks recent observations and
+#      raises when the same result appears max_no_progress times in a row
+#   2. System prompt rules — "If a tool returns No results, do not retry"
+#   3. Async timeout — asyncio.wait_for() wraps agent.invoke() for wall-clock
+#      limits independent of iteration count
 # =============================================================================
 
 import asyncio

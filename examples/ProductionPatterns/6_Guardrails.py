@@ -1,17 +1,18 @@
 # =============================================================================
 # Section 6.6 — Guardrails and Constraints
-# Topic:  GuardrailAgent wraps a create_agent with pre-execution input checks
-#         and post-execution output checks. Queries that violate rules are
-#         rejected before the agent runs; outputs containing PII are filtered.
-# =============================================================================
-# Rules dict schema:
-#   max_query_length  (int)  — maximum allowed input length
-#   prohibited_terms  (list) — case-insensitive blocked input substrings
-#   allow_pii         (bool) — if False, outputs containing email addresses
-#                              or phone numbers are filtered
+# Topic:  GuardrailAgent wraps a create_agent with two safety layers:
+#           1. Pre-execution input checks — reject queries before the agent runs
+#           2. Post-execution output checks — filter responses before returning
 #
-# Return structure on violation:
-#   {"output": "<reason>", "error": "SAFETY_VIOLATION | OUTPUT_FILTERED | EXECUTION_ERROR"}
+# Rules dict:
+#   max_query_length  (int)  — reject queries longer than this
+#   prohibited_terms  (list) — reject if any term appears (case-insensitive)
+#   allow_pii         (bool) — if False, filter outputs containing emails or
+#                              phone numbers using regex
+#
+# Return value on violation:
+#   {"output": "<human-readable reason>",
+#    "error": "SAFETY_VIOLATION | OUTPUT_FILTERED | EXECUTION_ERROR"}
 # =============================================================================
 
 import os

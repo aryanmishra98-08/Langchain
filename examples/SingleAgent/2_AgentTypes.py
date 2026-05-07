@@ -1,21 +1,14 @@
 # =============================================================================
-# Section 3.2 — Agent Types in LangChain 1.0
-# Topic:  How agent types evolved and what the standard looks like in 1.0.
+# Section 3.2 — Agent Types
+# Topic:  Standard agent vs specialist agent using create_agent().
 #
-# LangChain 1.0 unifies agent creation under create_agent(), which internally
-# uses tool-calling APIs (structured JSON) — the same as the old
-# create_tool_calling_agent pattern, but without the AgentExecutor boilerplate.
+# create_agent() uses the model's native tool-calling API (structured JSON),
+# which is more reliable than text-parsed approaches. The primary way to
+# differentiate agent behavior is via system_prompt — no need to build a
+# ChatPromptTemplate manually.
 #
-# Historical context (for understanding older code):
-#   ReAct Agent (create_react_agent)    → text-parsed, any LLM, medium reliability
-#   Tool Calling (create_tool_calling_agent) → JSON API, high reliability
-#   Structured Chat                     → legacy multi-input on non-tool-calling LLMs
-#
-# Current standard (LangChain 1.0):
-#   create_agent() — unified, uses tool-calling internally, model-agnostic
-#
-# For models that don't support tool calling (open-source LLMs), LangGraph's
-# prebuilt create_react_agent is the fallback (covered in the LangGraph session).
+# For open-source LLMs that don't support tool calling, LangGraph's prebuilt
+# create_react_agent is the fallback (covered in the LangGraph session).
 # =============================================================================
 
 import os

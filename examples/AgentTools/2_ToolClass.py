@@ -5,8 +5,10 @@
 # =============================================================================
 # Use the Tool class when you have an existing function you want to wrap,
 # or when you prefer explicit name/description/func separation over decorators.
-#
-# Migration note: Import from langchain_core.tools, not langchain.tools.
+# The three required fields map directly to how agents use the tool:
+#   name        → how the agent refers to it in tool calls
+#   func        → the Python callable that runs when the agent invokes it
+#   description → what the agent reads to decide whether to use it
 # =============================================================================
 
 from pathlib import Path

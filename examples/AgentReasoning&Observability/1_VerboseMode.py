@@ -1,13 +1,7 @@
 # =============================================================================
-# Section 4.1 — Understanding Agent Thought Process: Verbose Mode
-# Topic:  In LangChain 1.0, the reasoning trace lives in result["messages"].
-#         Each message is a typed object: HumanMessage, AIMessage (with
-#         tool_calls), ToolMessage (tool result), and the final AIMessage.
-#
-# This replaces the verbose=True flag on AgentExecutor. You get the same
-# Thought → Action → Observation → Final Answer trace by iterating messages.
-# =============================================================================
-# Expected message sequence:
+# Section 4.1 — Reading the Agent Reasoning Trace
+# Topic:  The full Thought → Action → Observation → Answer sequence lives in
+#         result["messages"]. Each message is a typed object:
 #
 #   HumanMessage  — user's original question
 #   AIMessage     — agent reasoning + tool_calls=[{name, args}]
@@ -15,6 +9,10 @@
 #   AIMessage     — (possibly more tool calls if needed)
 #   ...
 #   AIMessage     — final answer (no tool_calls, just content)
+#
+# The print_reasoning_trace() function below formats this into a readable
+# step-by-step view. Useful during development; use middleware for production
+# observability.
 # =============================================================================
 
 import os

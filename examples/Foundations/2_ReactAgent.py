@@ -4,8 +4,10 @@
 # Topic:  Basic agent that dynamically selects between a search tool and
 #         a calculator tool based on the user's query.
 # =============================================================================
-# An agent has dynamic reasoning and non-deterministic control flow.
-# It can choose which tools to invoke based on tool descriptions.
+# Unlike the LCEL chain in 1_LCELChain.py, an agent decides at runtime
+# which tools to invoke. The decision is driven entirely by tool descriptions
+# — the better the description, the more reliably the agent picks the right
+# tool.
 #
 # Agent decision process:
 #   1. Parse user question
@@ -14,8 +16,7 @@
 #   4. Execute and observe result
 #   5. Continue or terminate
 #
-# LangChain 1.0: create_agent() replaces create_react_agent + AgentExecutor.
-# Input format: {"messages": [{"role": "user", "content": "..."}]}
+# Input:  {"messages": [{"role": "user", "content": "..."}]}
 # Output: result["messages"][-1].content
 # =============================================================================
 

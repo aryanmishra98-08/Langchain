@@ -1,13 +1,11 @@
 # =============================================================================
-# Section 4.2 — Capturing Intermediate Steps
-# Topic:  In LangChain 1.0, intermediate steps are accessed via result["messages"].
-#         Each AIMessage with tool_calls is a reasoning step; each ToolMessage
-#         is the observation. This replaces return_intermediate_steps=True.
+# Section 4.2 — Extracting Intermediate Steps
+# Topic:  AIMessages with tool_calls and their paired ToolMessages in
+#         result["messages"] together form the intermediate steps.
 #
-# The messages list enables:
-#   - Post-hoc auditing of agent decisions
-#   - Custom step-level logging or metrics
-#   - Building UIs that show reasoning progress
+# extract_steps() correlates them by tool_call_id, returning a list of
+#   {"tool": name, "input": args, "output": observation}
+# dicts — useful for auditing, metrics, and reasoning UIs.
 # =============================================================================
 
 import os

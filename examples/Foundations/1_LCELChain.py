@@ -2,13 +2,12 @@
 # Section 1.1 — Agent vs Chain: Understanding the Difference
 # Topic:  Simple deterministic chain using LCEL (LangChain Expression Language)
 # =============================================================================
-# A chain has a fixed, pre-defined sequence of operations.
-# The pipe operator (|) composes Runnables into a chain and is the modern
-# replacement for the deprecated LLMChain class.
+# A chain has a fixed, pre-defined sequence of operations. The pipe operator
+# (|) composes Runnables — prompt, LLM, output parser — into a single
+# callable. Every invocation follows the same path.
 #
-# Migration note: LLMChain is deprecated and scheduled for removal.
-# LCEL (the | pipe operator) is now the standard for composing chains.
-# It provides better streaming, batching, async support, and observability.
+# Compare with 2_ReactAgent.py, where the agent decides at runtime which
+# steps to take based on the query.
 # =============================================================================
 
 import os

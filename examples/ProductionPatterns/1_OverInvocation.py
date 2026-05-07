@@ -1,20 +1,20 @@
 # =============================================================================
-# Section 6.1 — Production Debugging: Issue 1 — Over-invocation of Tools
-# Topic:  Agents that call the same tool repeatedly with similar inputs.
+# Section 6.1 — Production Issue 1: Over-invocation of Tools
+# Topic:  Agents that call the same tool repeatedly with identical inputs.
 #
 # Symptoms:
 #   Tool: search  → Observation: $5M
-#   Tool: search  → Observation: $5M   (same again)
+#   Tool: search  → Observation: $5M   (same — no new information)
 #   Tool: search  → Observation: $5M   (same again)
 #
-# Solutions demonstrated:
-#   1. Improved tool description with explicit "call once" instruction
-#   2. DeduplicationMiddleware — intercepts repeated (tool, input) pairs before
-#      they reach the LLM and raises to stop the loop
-#   3. System prompt reinforcement via system_prompt in create_agent
+# Three solutions are demonstrated:
+#   1. Better tool description — add "IMPORTANT: Only call this once per query"
+#   2. DeduplicationMiddleware — intercepts repeated (tool, input) pairs in
+#      before_model and raises ValueError to stop the loop
+#   3. System prompt rules — explicit instruction not to repeat tool calls
 #
-# LangChain 1.0: middleware replaces the callback-based DeduplicationCallback.
-# Middleware wraps the agent loop; callbacks hook into individual lifecycle events.
+# All three can be combined; the middleware is the most reliable safety net
+# because it enforces the constraint in code rather than relying on the LLM.
 # =============================================================================
 
 import os

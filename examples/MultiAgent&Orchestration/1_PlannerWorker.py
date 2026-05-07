@@ -1,13 +1,14 @@
 # =============================================================================
 # Section 5.1 — Multi-Agent Pattern 1: Planner + Worker
-# Topic:  One agent (LCEL chain) plans a task as a numbered list; a second
-#         agent (create_agent) executes the plan using fetch/process/report
-#         tools. Demonstrates sequential (pipeline) communication pattern.
-# =============================================================================
-# Communication pattern: Agent1 → Result → Agent2
+# Topic:  A Planner LCEL chain breaks a high-level task into a numbered
+#         step list; a Worker agent then executes the plan using domain
+#         tools. Classic sequential (pipeline) pattern.
 #
-# The Planner is an LCEL chain (no agent needed for pure text planning).
-# The Worker is a full create_agent with domain tools.
+# Communication:  Planner → plan string → Worker
+#
+# The Planner is a pure LCEL chain — no agent is needed when the component
+# only transforms text without needing to call tools. The Worker is a full
+# create_agent with fetch_data, process_data, and generate_report tools.
 # =============================================================================
 
 import os

@@ -1,23 +1,20 @@
 # =============================================================================
 # Section 6.5 — Monitoring and Observability
-# Topic:  AgentMonitor (metrics collector) + MonitoringMiddleware (lifecycle
-#         hooks) for tracking call counts, success rates, execution times,
-#         tool usage frequencies, and recent errors.
-# =============================================================================
+# Topic:  AgentMonitor collects metrics; MonitoringMiddleware wires it into
+#         the agent loop via BaseMiddleware hooks.
+#
 # AgentMonitor.get_report() returns:
-#   total_calls          — number of agent invocations
-#   success_rate         — successful / total
-#   average_execution_time — mean wall-clock time per call
-#   tool_usage           — {tool_name: invocation_count}
-#   recent_errors        — last 5 error records with timestamp and message
+#   total_calls            — number of agent invocations
+#   success_rate           — successful / total
+#   average_execution_time — mean wall-clock time per call in seconds
+#   tool_usage             — {tool_name: invocation_count}
+#   recent_errors          — last 5 error records with timestamp and message
 #
-# MonitoringMiddleware wires AgentMonitor into the agent loop:
-#   before_model → log_start() on first call
-#   after_tool   → log_tool_use(tool_name)
-#   after_model  → detect finish and log_success() or log_failure()
-#
-# LangChain 1.0: middleware replaces MonitoringCallback on AgentExecutor.
-# Callbacks still work but middleware provides cleaner state access.
+# MonitoringMiddleware hooks:
+#   before_model → log_start() on the first call of each invocation
+#   after_tool   → log_tool_use(tool_name) per tool execution
+#   after_model  → detect final answer and call log_success()
+#   on_error     → log_failure(error) and re-raise
 # =============================================================================
 
 import json

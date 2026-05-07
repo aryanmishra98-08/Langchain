@@ -1,14 +1,15 @@
 # =============================================================================
 # Section 5.2 — Multi-Agent Pattern 2: Researcher + Writer
-# Topic:  A Researcher agent gathers information from web, news, and stats
-#         tools; a Writer agent then creates a structured article using outline
-#         and formatting tools. Demonstrates sequential (pipeline) pattern with
-#         domain-separated agents.
-# =============================================================================
-# Communication pattern: Agent1 → Result → Agent2
+# Topic:  Domain-separated agents in a sequential pipeline. The Researcher
+#         gathers information; the Writer turns those findings into an article.
+#
+# Communication:  Researcher → research findings string → Writer
 #
 # Researcher tools: search_papers, search_news, search_statistics
 # Writer tools:     create_outline, format_article
+#
+# The key idea: each agent has a focused tool set that matches its role.
+# Neither agent needs to know how the other works internally.
 # =============================================================================
 
 import os

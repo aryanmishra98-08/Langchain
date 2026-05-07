@@ -1,22 +1,24 @@
 # =============================================================================
-# Section 3.3 — Agent Configuration in LangChain 1.0
+# Section 3.3 — Agent Configuration
 # Topic:  Key create_agent parameters with inline explanations.
 #         Use this file as a configuration reference when building agents.
 #
 # Parameter summary:
 #   model           → LLM instance or model string identifier
 #   tools           → List of tool functions / Tool objects
-#   system_prompt   → Agent instructions (replaces ChatPromptTemplate boilerplate)
-#   name            → Identifier used in multi-agent systems
-#   middleware      → List of middleware for observability, safety, flow control
+#   system_prompt   → Agent instructions
+#   name            → Identifier used in multi-agent systems for tracing
+#   middleware      → List of BaseMiddleware for observability and flow control
 #   state_schema    → Custom TypedDict extending AgentState for extra state fields
 #   response_format → Constrain output to a specific schema (structured output)
 #
-# Accessing intermediate steps in 1.0:
-#   result["messages"] contains the full conversation including tool calls and
-#   tool results as message objects. Iterate to inspect the reasoning trace.
+# Reasoning trace:
+#   result["messages"] contains the full conversation, including tool calls
+#   (AIMessage with tool_calls) and tool results (ToolMessage). Iterate this
+#   list to inspect the Thought → Action → Observation → Answer sequence.
 #
-# Timeout: wrap agent.invoke() in asyncio or concurrent.futures for wall-clock limits.
+# Timeouts: wrap agent.invoke() in asyncio.wait_for() or
+#   concurrent.futures for wall-clock limits (see 2_RunawayLoops.py).
 # =============================================================================
 
 import os

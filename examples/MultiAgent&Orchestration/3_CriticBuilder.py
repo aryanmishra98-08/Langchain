@@ -1,16 +1,16 @@
 # =============================================================================
 # Section 5.3 — Multi-Agent Pattern 3: Critic + Builder
-# Topic:  An iterative loop where a Builder LCEL chain generates code from
-#         requirements and a Critic LCEL chain reviews it. The loop continues
-#         until the Critic responds "APPROVED: <reason>" or max_iterations
-#         is reached.
-# =============================================================================
-# Both Builder and Critic are LCEL chains (prompt | llm | StrOutputParser).
-# No AgentExecutor is needed — pure chain orchestration is sufficient here.
+# Topic:  Iterative refinement loop. The Builder LCEL chain generates code
+#         from requirements; the Critic LCEL chain reviews it and either
+#         approves or requests changes. The loop repeats until approved or
+#         max_iterations is reached.
 #
-# Critique format expected from Critic:
-#   "APPROVED: <reason>"      → loop terminates
-#   "NEEDS_WORK: <issues>"    → builder is asked to revise
+# Both components are LCEL chains — no agent is needed because neither
+# component calls external tools; they only generate and evaluate text.
+#
+# Critique protocol:
+#   "APPROVED: <reason>"    → loop terminates, code is accepted
+#   "NEEDS_WORK: <issues>"  → builder receives feedback and revises
 # =============================================================================
 
 import os

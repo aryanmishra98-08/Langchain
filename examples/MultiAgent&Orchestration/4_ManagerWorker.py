@@ -1,18 +1,18 @@
 # =============================================================================
-# Section 5.4 — Multi-Agent Communication: Hierarchical Pattern
-# Topic:  A ManagerWorkerSystem where a Manager LCEL chain parses a high-level
-#         task into subtask assignments and dispatches them to named Worker agents.
-# =============================================================================
-# Communication pattern:
+# Section 5.4 — Multi-Agent Pattern 4: Manager + Workers (Hierarchical)
+# Topic:  A Manager LCEL chain decomposes a high-level task into subtask
+#         assignments and dispatches each to a named Worker agent.
+#
 #         Manager
 #        /   |   \
 #   Worker1 Worker2 Worker3
 #
 # Manager output format: "ASSIGN: worker_name | task_description"
-# The _parse_assignments method extracts these lines and routes subtasks.
+# _parse_assignments() extracts these lines and routes each subtask
+# to the matching worker by name.
 #
-# To use: instantiate with a list of {"name": str, "agent": create_agent(...)}
-# worker dicts, then call system.execute(task).
+# Usage: ManagerWorkerSystem(llm, workers=[{"name": ..., "agent": ...}])
+#         .execute(task)
 # =============================================================================
 
 import os

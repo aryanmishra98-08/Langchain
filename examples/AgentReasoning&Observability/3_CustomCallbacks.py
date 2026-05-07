@@ -1,15 +1,18 @@
 # =============================================================================
 # Section 4.3 — Custom Callbacks for Monitoring
-# Topic:  A custom BaseCallbackHandler that intercepts agent lifecycle events
-#         (action taken, tool start, tool end, agent finish) and stores them
-#         for later inspection. Passed via config={"callbacks": [...]}.
+# Topic:  A BaseCallbackHandler that intercepts agent lifecycle events:
+#           on_agent_action  — agent selects a tool
+#           on_agent_finish  — agent produces its final answer
+#           on_tool_start    — just before tool execution
+#           on_tool_end      — receives tool output
 #
-# BaseCallbackHandler still works in LangChain 1.0 and is passed the same way.
-# For new production code, prefer the middleware system (see ProductionPatterns/).
-# Callbacks remain useful for dev-time inspection and third-party integrations.
+# Callbacks fire per-event and are best for dev-time inspection and
+# third-party integrations (e.g. logging services). For production flow
+# control — deduplication, loop guards, metrics — use middleware instead,
+# which has access to the full agent state at each step.
 #
-# Note: on_tool_end receives a ToolMessage object in modern versions;
-# always use str(output) for safe string conversion.
+# Pass via config={"callbacks": [handler]} in agent.invoke().
+# Use str(output) in on_tool_end — output is a ToolMessage object.
 # =============================================================================
 
 import os

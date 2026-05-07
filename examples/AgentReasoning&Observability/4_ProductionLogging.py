@@ -1,15 +1,14 @@
 # =============================================================================
-# Section 4.4 — Logging for Production
-# Topic:  A ProductionAgentCallback that writes structured log entries to a
-#         timestamped file. Passed via config={"callbacks": [...]} in .invoke().
-# =============================================================================
-# Pro tip: For production observability, consider LangSmith
-# (set LANGCHAIN_TRACING_V2=true). It captures full traces including LLM
-# calls, token usage, and latencies without writing custom callbacks.
+# Section 4.4 — Structured Logging for Production
+# Topic:  ProductionAgentCallback writes structured log entries to a
+#         timestamped file. Pass via config={"callbacks": [...]} in .invoke().
 #
-# Log levels used:
-#   INFO  → normal agent lifecycle events (action, tool output, finish)
+# Log levels:
+#   INFO  → normal lifecycle events (action taken, tool output, finish)
 #   ERROR → LLM errors
+#
+# Pro tip: For zero-code full tracing (LLM calls, token usage, latencies),
+# set LANGCHAIN_TRACING_V2=true to enable LangSmith instead.
 # =============================================================================
 
 import logging

@@ -1,22 +1,20 @@
 # =============================================================================
-# Section 6.1 — Production Debugging: Issue 4 — Tool Execution Errors
-# Topic:  Tools that crash or return errors (ZeroDivisionError, timeouts, etc.)
+# Section 6.4 — Production Issue 4: Tool Execution Errors
+# Topic:  Tools that crash (ZeroDivisionError) or stall (API timeouts).
 #
-# Symptoms:
-#   Action: calculator
-#   Action Input: 10/0
-#   Error: ZeroDivisionError: division by zero
+# The golden rule for tools: always return a string, never raise.
+# When a tool raises, the agent loop crashes instead of recovering gracefully.
 #
-# Solutions demonstrated:
-#   1. safe_calculator     — specific exception handlers per error type
-#   2. validated_calculator — pre-validation before numexpr evaluation
+# Three defensive patterns demonstrated:
+#   1. safe_calculator     — catches specific exceptions and returns human-
+#                            readable error strings per error type
+#   2. validated_calculator — pre-validates the expression before evaluating,
+#                            catching obvious errors before numexpr sees them
 #   3. run_with_timeout    — cross-platform timeout via concurrent.futures
+#                            (works on Windows, Linux, macOS — unlike SIGALRM)
 #
-# Migration note: signal.SIGALRM is Unix-only. Use concurrent.futures
-# for cross-platform compatibility (Windows, Linux, macOS).
-#
-# Security note: eval() has known escape vectors and is unsafe for production.
-# numexpr parses through a restricted grammar — mathematical operations only.
+# Security note: numexpr's restricted grammar prevents arbitrary code
+# execution. Never use eval() for untrusted mathematical input.
 # =============================================================================
 
 import time

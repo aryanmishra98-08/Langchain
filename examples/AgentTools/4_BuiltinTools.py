@@ -1,19 +1,13 @@
 # =============================================================================
 # Section 2.4 — Built-in Tool Examples
-# Topic:  The three standard production-ready tools:
-#           1. Calculator (numexpr — safe sandboxed math evaluation)
-#           2. Web Search (DuckDuckGo — requires active internet connection)
-#           3. Retrieval Tool (Chroma vector store — requires OPENAI_API_KEY)
+# Topic:  Three production-ready tools you can drop into any agent:
+#           1. Calculator  — numexpr sandboxed math evaluation (always safe)
+#           2. Web Search  — DuckDuckGoSearchRun (requires internet)
+#           3. Retrieval   — create_retriever_tool from a Chroma vector store
 # =============================================================================
-# Migration notes:
-#   - Chroma moved from langchain_community.vectorstores to its own package:
-#       pip install langchain-chroma  →  from langchain_chroma import Chroma
-#   - create_retriever_tool moved from langchain.tools.retriever to
-#       langchain_core.tools
-#   - Use text-embedding-3-small (cheaper, better) instead of legacy
-#       text-embedding-ada-002
-#   - Avoid PythonREPL (langchain_experimental) for untrusted input — it
-#       executes arbitrary Python and is a significant security risk.
+# Security note on PythonREPL: langchain_experimental's PythonREPL executes
+# arbitrary Python code. Never expose it to agents that handle untrusted input.
+# Use a focused tool like this numexpr-based calculator instead.
 # =============================================================================
 
 import os
