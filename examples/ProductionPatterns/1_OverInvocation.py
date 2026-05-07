@@ -3,14 +3,18 @@
 # Topic:  Agents that call the same tool repeatedly with similar inputs.
 #
 # Symptoms:
-#   Action: search  → Observation: $5M
-#   Action: search  → Observation: $5M   (same again)
-#   Action: search  → Observation: $5M   (same again)
+#   Tool: search  → Observation: $5M
+#   Tool: search  → Observation: $5M   (same again)
+#   Tool: search  → Observation: $5M   (same again)
 #
 # Solutions demonstrated:
-#   1. Hard iteration limit via max_iterations
-#   2. DeduplicationCallback — raises on repeated (tool, input) pairs
-#   3. Improved tool description with explicit "call once" instruction
+#   1. Improved tool description with explicit "call once" instruction
+#   2. DeduplicationMiddleware — intercepts repeated (tool, input) pairs before
+#      they reach the LLM and raises to stop the loop
+#   3. System prompt reinforcement via system_prompt in create_agent
+#
+# LangChain 1.0: middleware replaces the callback-based DeduplicationCallback.
+# Middleware wraps the agent loop; callbacks hook into individual lifecycle events.
 # =============================================================================
 
 import os
@@ -19,11 +23,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from langchain_core.tools import tool
-from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_agent
+from langchain.agents.middleware import BaseMiddleware
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 
@@ -31,7 +34,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 # Edit the values below to adapt the script to your environment.
 LLM_TEMPERATURE = 0                          # 0 = deterministic output
 API_VERSION     = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-MAX_ITERATIONS  = 5                          # hard cap on tool calls
 DEMO_QUERY      = "What is the company revenue?"  # demo query
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -44,7 +46,7 @@ llm = AzureChatOpenAI(
 )
 
 
-# ── Solution 3: Improve tool descriptions ────────────────────────────────────
+# ── Solution 1: Improve tool descriptions ─────────────────────────────────────
 
 @tool
 def search_once(query: str) -> str:
@@ -59,43 +61,43 @@ def search_once(query: str) -> str:
 
 tools = [search_once]
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant."),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
 
-agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
+# ── Solution 2: DeduplicationMiddleware ──────────────────────────────────────
+# Middleware wraps the full agent loop, making it easier to track state across
+# the entire invocation (vs callbacks which fire per-event).
 
-
-# ── Solution 2: DeduplicationCallback ────────────────────────────────────────
-
-class DeduplicationCallback(BaseCallbackHandler):
+class DeduplicationMiddleware(BaseMiddleware):
     def __init__(self):
-        self.seen_actions = []
+        self.seen_calls: list[str] = []
 
-    def on_agent_action(self, action, **kwargs):
-        action_signature = f"{action.tool}:{action.tool_input}"
+    def before_model(self, state, config):
+        """Inspect pending tool calls and raise if duplicated."""
+        messages = state.get("messages", [])
+        if messages:
+            last = messages[-1]
+            for tc in getattr(last, "tool_calls", []):
+                signature = f"{tc['name']}:{tc['args']}"
+                if signature in self.seen_calls:
+                    raise ValueError(f"Duplicate tool call detected: {signature}")
+                self.seen_calls.append(signature)
+        return state, config
 
-        if action_signature in self.seen_actions:
-            raise ValueError(f"Duplicate action detected: {action_signature}")
 
-        self.seen_actions.append(action_signature)
+# ── Solution 3: System prompt reinforcement ───────────────────────────────────
 
+anti_loop_prompt = (
+    "You are a helpful assistant. "
+    "IMPORTANT: Never call the same tool with the same input more than once. "
+    "If a tool returns no results, accept that and answer with what you know."
+)
 
-# ── Solution 1: Limit iterations ─────────────────────────────────────────────
-
-agent_executor = AgentExecutor(
-    agent=agent,
+agent = create_agent(
+    model=llm,
     tools=tools,
-    max_iterations=MAX_ITERATIONS,  # Hard limit
-    verbose=True,
+    system_prompt=anti_loop_prompt,
+    middleware=[DeduplicationMiddleware()],
 )
 
 if __name__ == "__main__":
-    dedup_callback = DeduplicationCallback()
-    result = agent_executor.invoke(
-        {"input": DEMO_QUERY},
-        config={"callbacks": [dedup_callback]},
-    )
-    print(result["output"])
+    result = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY}]})
+    print(result["messages"][-1].content)

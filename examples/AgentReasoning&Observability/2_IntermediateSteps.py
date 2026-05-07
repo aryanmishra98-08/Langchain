@@ -1,10 +1,10 @@
 # =============================================================================
 # Section 4.2 — Capturing Intermediate Steps
-# Topic:  Setting return_intermediate_steps=True on AgentExecutor to access
-#         the full reasoning chain programmatically. Each step is a tuple of
-#         (AgentAction, observation_string).
-# =============================================================================
-# The intermediate_steps list enables:
+# Topic:  In LangChain 1.0, intermediate steps are accessed via result["messages"].
+#         Each AIMessage with tool_calls is a reasoning step; each ToolMessage
+#         is the observation. This replaces return_intermediate_steps=True.
+#
+# The messages list enables:
 #   - Post-hoc auditing of agent decisions
 #   - Custom step-level logging or metrics
 #   - Building UIs that show reasoning progress
@@ -12,6 +12,7 @@
 
 import os
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -19,8 +20,7 @@ from langchain_core.tools import tool, create_retriever_tool
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -80,24 +80,43 @@ retriever_tool = create_retriever_tool(
 )
 
 tools = [calculator, retriever_tool]
-prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm, tools, prompt)
 
-# Set return_intermediate_steps=True on the executor
-agent_executor = AgentExecutor(
-    agent=agent,
+agent = create_agent(
+    model=llm,
     tools=tools,
-    return_intermediate_steps=True,
+    system_prompt="You are a helpful assistant.",
 )
 
+
+def extract_steps(messages: list) -> list[dict[str, Any]]:
+    """Extract (tool, input, output) step tuples from the message list."""
+    steps = []
+    pending_tool_calls: dict[str, dict] = {}
+
+    for msg in messages:
+        tool_calls = getattr(msg, "tool_calls", None)
+        if tool_calls:
+            for tc in tool_calls:
+                pending_tool_calls[tc["id"]] = {"tool": tc["name"], "input": tc["args"]}
+
+        if type(msg).__name__ == "ToolMessage":
+            call_id = getattr(msg, "tool_call_id", None)
+            if call_id and call_id in pending_tool_calls:
+                step = pending_tool_calls.pop(call_id)
+                step["output"] = msg.content
+                steps.append(step)
+
+    return steps
+
+
 if __name__ == "__main__":
-    result = agent_executor.invoke({"input": DEMO_QUERY})
+    result = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY}]})
 
     # Access the reasoning chain
-    print("Final Answer:", result["output"])
+    print("Final Answer:", result["messages"][-1].content)
+
     print("\nReasoning Steps:")
-    for step in result["intermediate_steps"]:
-        action, observation = step
-        print(f"\nAction: {action.tool}")
-        print(f"Input: {action.tool_input}")
-        print(f"Output: {observation}")
+    for step in extract_steps(result["messages"]):
+        print(f"\nAction: {step['tool']}")
+        print(f"Input: {step['input']}")
+        print(f"Output: {step['output']}")

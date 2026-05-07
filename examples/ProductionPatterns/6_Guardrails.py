@@ -1,9 +1,8 @@
 # =============================================================================
-# Section 6.3 — Guardrails and Constraints
-# Topic:  GuardrailAgent wraps an AgentExecutor with pre-execution input
-#         checks and post-execution output checks. Queries that violate rules
-#         are rejected before the agent runs; outputs containing PII are
-#         filtered before being returned.
+# Section 6.6 — Guardrails and Constraints
+# Topic:  GuardrailAgent wraps a create_agent with pre-execution input checks
+#         and post-execution output checks. Queries that violate rules are
+#         rejected before the agent runs; outputs containing PII are filtered.
 # =============================================================================
 # Rules dict schema:
 #   max_query_length  (int)  — maximum allowed input length
@@ -23,10 +22,9 @@ from typing import Dict
 from dotenv import load_dotenv
 
 from langchain_core.tools import tool
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -63,14 +61,11 @@ def calculator(expression: str) -> str:
 
 tools = [calculator]
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant."),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
-
-agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
-base_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+base_agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="You are a helpful assistant.",
+)
 
 
 # ── GuardrailAgent ────────────────────────────────────────────────────────────
@@ -78,13 +73,11 @@ base_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 class GuardrailAgent:
     """Agent with safety guardrails."""
 
-    def __init__(self, executor: AgentExecutor, rules: Dict):
-        self.executor = executor
+    def __init__(self, agent, rules: Dict):
+        self.agent = agent
         self.rules = rules
 
-    def invoke(self, input_dict: Dict) -> Dict:
-        query = input_dict["input"]
-
+    def invoke(self, query: str) -> Dict:
         # Pre-execution checks
         if not self._check_input_safety(query):
             return {
@@ -92,18 +85,21 @@ class GuardrailAgent:
                 "error": "SAFETY_VIOLATION",
             }
 
-        # Execute with monitoring
+        # Execute
         try:
-            result = self.executor.invoke(input_dict)
+            result = self.agent.invoke(
+                {"messages": [{"role": "user", "content": query}]}
+            )
+            output = result["messages"][-1].content
 
             # Post-execution validation
-            if not self._check_output_safety(result["output"]):
+            if not self._check_output_safety(output):
                 return {
                     "output": "Output filtered: contains prohibited content",
                     "error": "OUTPUT_FILTERED",
                 }
 
-            return result
+            return {"output": output}
 
         except Exception as e:
             return {
@@ -112,30 +108,18 @@ class GuardrailAgent:
             }
 
     def _check_input_safety(self, query: str) -> bool:
-        """Check if input is safe."""
-        # Check query length
         if len(query) > self.rules.get("max_query_length", 1000):
             return False
-
-        # Check for prohibited terms
         prohibited = self.rules.get("prohibited_terms", [])
-        if any(term.lower() in query.lower() for term in prohibited):
-            return False
-
-        return True
+        return not any(term.lower() in query.lower() for term in prohibited)
 
     def _check_output_safety(self, output: str) -> bool:
-        """Check if output is safe."""
-        # Email pattern
+        if self.rules.get("allow_pii", False):
+            return True
         if re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", output):
-            if not self.rules.get("allow_pii", False):
-                return False
-
-        # Phone pattern
+            return False
         if re.search(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b", output):
-            if not self.rules.get("allow_pii", False):
-                return False
-
+            return False
         return True
 
 
@@ -147,13 +131,13 @@ rules = {
     "allow_pii": ALLOW_PII,
 }
 
-guarded_agent = GuardrailAgent(base_executor, rules)
+guarded_agent = GuardrailAgent(base_agent, rules)
 
 if __name__ == "__main__":
     # Safe query
-    result = guarded_agent.invoke({"input": DEMO_QUERY_SAFE})
+    result = guarded_agent.invoke(DEMO_QUERY_SAFE)
     print("Safe query result:", result)
 
     # Unsafe query — contains a prohibited term
-    result = guarded_agent.invoke({"input": DEMO_QUERY_UNSAFE})
+    result = guarded_agent.invoke(DEMO_QUERY_UNSAFE)
     print("Unsafe query result:", result)

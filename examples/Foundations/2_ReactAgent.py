@@ -1,7 +1,7 @@
 # =============================================================================
 # Section 1.1 — Agent vs Chain: Understanding the Difference
 # Section 1.3 — Tool Selection Logic
-# Topic:  Basic ReAct agent that dynamically selects between a search tool and
+# Topic:  Basic agent that dynamically selects between a search tool and
 #         a calculator tool based on the user's query.
 # =============================================================================
 # An agent has dynamic reasoning and non-deterministic control flow.
@@ -13,6 +13,10 @@
 #   3. Select the most relevant tool
 #   4. Execute and observe result
 #   5. Continue or terminate
+#
+# LangChain 1.0: create_agent() replaces create_react_agent + AgentExecutor.
+# Input format: {"messages": [{"role": "user", "content": "..."}]}
+# Output: result["messages"][-1].content
 # =============================================================================
 
 import os
@@ -23,8 +27,7 @@ from dotenv import load_dotenv
 from langchain_core.tools import Tool
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -34,7 +37,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 # Edit the values below to adapt the script to your environment.
 LLM_TEMPERATURE = 0                          # 0 = deterministic output
 API_VERSION     = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-MAX_ITERATIONS  = 5                          # max agent reasoning steps before forced stop
 DEMO_QUERY      = "What's the population of NYC times 2?"  # demo question
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -83,17 +85,13 @@ calculator_tool = Tool(
 
 tools = [search_tool, calculator_tool]
 
-prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm, tools, prompt)
-executor = AgentExecutor(
-    agent=agent,
+agent = create_agent(
+    model=llm,
     tools=tools,
-    verbose=True,
-    handle_parsing_errors=True,
-    max_iterations=MAX_ITERATIONS,
+    system_prompt="You are a helpful assistant that answers questions using the available tools.",
 )
 
 if __name__ == "__main__":
     # Agent decides: search for population → calculator for multiplication
-    result = executor.invoke({"input": DEMO_QUERY})
-    print(result["output"])
+    result = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY}]})
+    print(result["messages"][-1].content)

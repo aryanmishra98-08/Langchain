@@ -1,7 +1,7 @@
 # =============================================================================
 # Section 4.4 — Logging for Production
 # Topic:  A ProductionAgentCallback that writes structured log entries to a
-#         timestamped file. verbose=False keeps the console clean in production.
+#         timestamped file. Passed via config={"callbacks": [...]} in .invoke().
 # =============================================================================
 # Pro tip: For production observability, consider LangSmith
 # (set LANGCHAIN_TRACING_V2=true). It captures full traces including LLM
@@ -24,8 +24,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -92,8 +91,12 @@ retriever_tool = create_retriever_tool(
 )
 
 tools = [calculator, retriever_tool]
-prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm, tools, prompt)
+
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="You are a helpful assistant.",
+)
 
 
 class ProductionAgentCallback(BaseCallbackHandler):
@@ -112,16 +115,11 @@ class ProductionAgentCallback(BaseCallbackHandler):
         logging.error(f"LLM_ERROR | Error: {str(error)}")
 
 
-# Use in production
-prod_callback = ProductionAgentCallback()
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    callbacks=[prod_callback],
-    verbose=False,  # Disable console output in production
-)
-
 if __name__ == "__main__":
-    result = agent_executor.invoke({"input": DEMO_QUERY})
-    print("Result:", result["output"])
+    prod_callback = ProductionAgentCallback()
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": DEMO_QUERY}]},
+        config={"callbacks": [prod_callback]},
+    )
+    print("Result:", result["messages"][-1].content)
     print("(Check the generated agent_logs_*.log file for detailed logs)")

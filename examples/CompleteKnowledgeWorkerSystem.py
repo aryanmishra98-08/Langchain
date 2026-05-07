@@ -3,13 +3,17 @@ Complete Multi-Agent Knowledge Worker System
 
 A three-agent pipeline that researches, writes, and evaluates documentation
 in an iterative loop:
-  1. Researcher (AgentExecutor) — gathers information from web, docs, examples
-  2. Writer (AgentExecutor)     — creates structured markdown documentation
-  3. Evaluator (LCEL chain)     — scores on 5 dimensions and approves/rejects
+  1. Researcher (create_agent) — gathers information from web, docs, examples
+  2. Writer (create_agent)     — creates structured markdown documentation
+  3. Evaluator (LCEL chain)    — scores on 5 dimensions and approves/rejects
 
 The Writer and Evaluator loop up to max_iterations times until the Evaluator
 returns approved=true (overall_score >= 8.0) or the limit is reached.
 Output is saved to knowledge_worker_output.md.
+
+LangChain 1.0: create_agent replaces create_react_agent + AgentExecutor.
+Input:  {"messages": [{"role": "user", "content": "..."}]}
+Output: result["messages"][-1].content
 """
 
 import json
@@ -25,8 +29,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / "keys" / ".env")
 
@@ -35,8 +38,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / "keys" / ".env")
 LLM_TEMPERATURE          = 0      # deterministic LLM for researcher and evaluator
 LLM_TEMPERATURE_CREATIVE = 0.7    # creative temperature for writer LLM
 API_VERSION              = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-RESEARCHER_MAX_ITER      = 10     # max steps for researcher agent
-WRITER_MAX_ITER          = 10     # max steps for writer agent
 SYSTEM_MAX_ITERATIONS    = 3      # max write-evaluate loop iterations
 APPROVAL_THRESHOLD       = 8.0    # evaluator overall_score required for approval
 OUTPUT_FILE              = "knowledge_worker_output.md"  # path to save final document
@@ -67,7 +68,7 @@ llm_creative = AzureChatOpenAI(
 def search_web(query: str) -> str:
     """Search the web for current information."""
     results = {
-        "langchain agents": "LangChain agents use ReAct pattern for reasoning. Support tools like search, calculator, retrieval.",
+        "langchain agents": "LangChain agents use tool-calling APIs for reasoning. Support tools like search, calculator, retrieval.",
         "multi-agent": "Multi-agent systems coordinate multiple AI agents with different roles and capabilities.",
         "production": "Production agents require monitoring, error handling, and guardrails for reliability.",
     }
@@ -81,9 +82,9 @@ def search_web(query: str) -> str:
 def search_documentation(query: str) -> str:
     """Search technical documentation."""
     docs = {
-        "api": "API documentation: Use create_react_agent() with llm, tools, and prompt parameters",
-        "tools": "Tool creation: Use @tool decorator or Tool class with name, func, description",
-        "callbacks": "Callbacks: Implement BaseCallbackHandler for monitoring and logging",
+        "api": "API documentation: Use create_agent() with model, tools, system_prompt parameters",
+        "tools": "Tool creation: Use @tool decorator or StructuredTool with name, func, description",
+        "middleware": "Middleware: Implement BaseMiddleware for monitoring, guardrails, and loop control",
     }
     for key in docs:
         if key in query.lower():
@@ -95,9 +96,9 @@ def search_documentation(query: str) -> str:
 def search_examples(query: str) -> str:
     """Search code examples and tutorials."""
     examples = {
-        "agent": "Example: agent = create_react_agent(llm, tools, prompt)",
+        "agent": "Example: agent = create_agent(model=llm, tools=tools, system_prompt='...')",
         "multi": "Example: Orchestrate agents with sequential or hierarchical patterns",
-        "monitoring": "Example: Use callbacks for logging and metrics collection",
+        "monitoring": "Example: Use MonitoringMiddleware for metrics collection",
     }
     for key in examples:
         if key in query.lower():
@@ -105,16 +106,13 @@ def search_examples(query: str) -> str:
     return "No examples found"
 
 
-# Create researcher tools and agent
-researcher_tools = [search_web, search_documentation, search_examples]
-researcher_prompt = hub.pull("hwchase17/react")
-researcher_agent = create_react_agent(llm, researcher_tools, researcher_prompt)
-researcher_executor = AgentExecutor(
-    agent=researcher_agent,
-    tools=researcher_tools,
-    verbose=True,
-    max_iterations=RESEARCHER_MAX_ITER,
-    handle_parsing_errors=True,
+researcher_agent = create_agent(
+    model=llm,
+    tools=[search_web, search_documentation, search_examples],
+    system_prompt=(
+        "You are a research specialist. Gather comprehensive information from "
+        "all available tools and compile detailed research findings."
+    ),
 )
 
 
@@ -125,7 +123,7 @@ researcher_executor = AgentExecutor(
 @tool
 def create_document_structure(topic: str) -> str:
     """Create a structured outline for documentation."""
-    structure = f"""Document Structure for: {topic}
+    return f"""Document Structure for: {topic}
 
 1. Introduction
    - Overview
@@ -146,20 +144,18 @@ def create_document_structure(topic: str) -> str:
 5. Conclusion
    - Summary
    - Next Steps"""
-    return structure
 
 
 @tool
 def format_markdown(content: str) -> str:
     """Format content as professional markdown."""
-    formatted = f"""# Documentation
+    return f"""# Documentation
 
 {content}
 
 ---
 *Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*
 """
-    return formatted
 
 
 @tool
@@ -167,8 +163,14 @@ def add_code_examples(section: str) -> str:
     """Generate code examples for a section."""
     examples = {
         "agent": """```python
-from langchain.agents import create_react_agent
-agent = create_react_agent(llm, tools, prompt)
+from langchain.agents import create_agent
+
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="You are a helpful assistant.",
+)
+result = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
 ```""",
         "tools": """```python
 from langchain_core.tools import tool
@@ -179,8 +181,9 @@ def my_tool(input: str) -> str:
     return process(input)
 ```""",
         "multi": """```python
-result1 = agent1.invoke({"input": task})
-result2 = agent2.invoke({"input": result1['output']})
+result1 = agent1.invoke({"messages": [{"role": "user", "content": task}]})
+output1 = result1["messages"][-1].content
+result2 = agent2.invoke({"messages": [{"role": "user", "content": output1}]})
 ```""",
     }
     for key in examples:
@@ -189,16 +192,13 @@ result2 = agent2.invoke({"input": result1['output']})
     return "# Code example placeholder"
 
 
-# Create writer tools and agent
-writer_tools = [create_document_structure, format_markdown, add_code_examples]
-writer_prompt = hub.pull("hwchase17/react")
-writer_agent = create_react_agent(llm_creative, writer_tools, writer_prompt)
-writer_executor = AgentExecutor(
-    agent=writer_agent,
-    tools=writer_tools,
-    verbose=True,
-    max_iterations=WRITER_MAX_ITER,
-    handle_parsing_errors=True,
+writer_agent = create_agent(
+    model=llm_creative,
+    tools=[create_document_structure, format_markdown, add_code_examples],
+    system_prompt=(
+        "You are a technical writer. Create clear, well-structured documentation "
+        "using the available tools. Always structure before writing."
+    ),
 )
 
 
@@ -238,16 +238,12 @@ Approve (true) if overall_score >= 8.0, otherwise reject (false)."""),
         ])
 
         # LCEL chain with built-in JSON parser
-        # JsonOutputParser handles markdown fences automatically
         self.chain = self.eval_prompt | self.llm | JsonOutputParser()
 
     def evaluate(self, content: str) -> Dict:
-        """Evaluate content and return scores."""
         try:
-            evaluation = self.chain.invoke({"content": content})
-            return evaluation
+            return self.chain.invoke({"content": content})
         except Exception as e:
-            # Fallback if parsing fails
             return {
                 "overall_score": 5.0,
                 "completeness": 5,
@@ -298,15 +294,14 @@ Find information from:
 
 Compile comprehensive research findings covering all aspects of the topic."""
 
-        research_result = self.researcher.invoke({"input": research_task})
-        research_findings = research_result["output"]
+        research_result = self.researcher.invoke(
+            {"messages": [{"role": "user", "content": research_task}]}
+        )
+        research_findings = research_result["messages"][-1].content
 
-        print(f"\n📚 Research Complete. Findings length: {len(research_findings)} chars")
+        print(f"\nResearch Complete. Findings length: {len(research_findings)} chars")
 
-        self.history.append({
-            "phase": "research",
-            "output": research_findings,
-        })
+        self.history.append({"phase": "research", "output": research_findings})
 
         # Phase 2: Write (with iteration)
         iteration = 0
@@ -344,12 +339,14 @@ Evaluator feedback:
 Research to reference:
 {research_findings}
 
-Revise the documentation addressing all feedback points. Improve sections with low scores."""
+Revise the documentation addressing all feedback points."""
 
-            writing_result = self.writer.invoke({"input": writing_task})
-            current_document = writing_result["output"]
+            writing_result = self.writer.invoke(
+                {"messages": [{"role": "user", "content": writing_task}]}
+            )
+            current_document = writing_result["messages"][-1].content
 
-            print(f"\n📝 Document Complete. Length: {len(current_document)} chars")
+            print(f"\nDocument Complete. Length: {len(current_document)} chars")
 
             self.history.append({
                 "phase": "writing",
@@ -364,7 +361,7 @@ Revise the documentation addressing all feedback points. Improve sections with l
 
             evaluation = self.evaluator.evaluate(current_document)
 
-            print(f"\n🎯 Evaluation Results:")
+            print(f"\nEvaluation Results:")
             print(f"   Overall Score: {evaluation['overall_score']}/10")
             print(f"   Completeness: {evaluation['completeness']}/10")
             print(f"   Clarity: {evaluation['clarity']}/10")
@@ -384,7 +381,7 @@ Revise the documentation addressing all feedback points. Improve sections with l
             iteration += 1
 
             if not approved and iteration < self.max_iterations:
-                print(f"\n🔄 Document needs improvement. Starting iteration {iteration + 1}...")
+                print(f"\nDocument needs improvement. Starting iteration {iteration + 1}...")
 
         # Final result
         print("\n" + "=" * 80)
@@ -392,9 +389,9 @@ Revise the documentation addressing all feedback points. Improve sections with l
         print("=" * 80)
 
         if approved:
-            print("✅ Documentation APPROVED and ready for publication!")
+            print("Documentation APPROVED and ready for publication!")
         else:
-            print(f"⚠️  Documentation reached max iterations ({self.max_iterations}). Review needed.")
+            print(f"Documentation reached max iterations ({self.max_iterations}). Review needed.")
 
         return {
             "topic": topic,
@@ -412,8 +409,8 @@ Revise the documentation addressing all feedback points. Improve sections with l
 
 if __name__ == "__main__":
     system = KnowledgeWorkerSystem(
-        researcher=researcher_executor,
-        writer=writer_executor,
+        researcher=researcher_agent,
+        writer=writer_agent,
         evaluator=evaluator,
         max_iterations=SYSTEM_MAX_ITERATIONS,
     )
@@ -430,7 +427,7 @@ if __name__ == "__main__":
     with open(OUTPUT_FILE, "w") as f:
         f.write(result["final_document"])
 
-    print(f"\n📄 Document saved to: {OUTPUT_FILE}")
+    print(f"\nDocument saved to: {OUTPUT_FILE}")
 
     # Display statistics
     print("\n" + "=" * 80)

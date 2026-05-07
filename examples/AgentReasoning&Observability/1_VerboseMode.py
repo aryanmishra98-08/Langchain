@@ -1,29 +1,20 @@
 # =============================================================================
 # Section 4.1 — Understanding Agent Thought Process: Verbose Mode
-# Topic:  Enabling verbose=True on AgentExecutor to print the full ReAct
-#         reasoning trace (Thought → Action → Observation → Final Answer)
-#         to stdout for development and debugging.
+# Topic:  In LangChain 1.0, the reasoning trace lives in result["messages"].
+#         Each message is a typed object: HumanMessage, AIMessage (with
+#         tool_calls), ToolMessage (tool result), and the final AIMessage.
+#
+# This replaces the verbose=True flag on AgentExecutor. You get the same
+# Thought → Action → Observation → Final Answer trace by iterating messages.
 # =============================================================================
-# Expected output shape:
+# Expected message sequence:
 #
-#   > Entering new AgentExecutor chain...
-#   I need to find the company's revenue first, then the number of employees.
-#
-#   Action: company_knowledge
-#   Action Input: revenue
-#   Observation: Annual revenue for 2023 was $5 million.
-#   Thought: Now I need to find the number of employees.
-#   Action: company_knowledge
-#   Action Input: employees
-#   Observation: We have 50 employees across 3 offices.
-#   Thought: Now I can calculate revenue per employee.
-#   Action: calculator
-#   Action Input: 5000000 / 50
-#   Observation: The result is: 100000.0
-#   Thought: I now know the final answer.
-#   Final Answer: The revenue per employee is $100,000.
-#
-#   > Finished chain.
+#   HumanMessage  — user's original question
+#   AIMessage     — agent reasoning + tool_calls=[{name, args}]
+#   ToolMessage   — tool result (observation)
+#   AIMessage     — (possibly more tool calls if needed)
+#   ...
+#   AIMessage     — final answer (no tool_calls, just content)
 # =============================================================================
 
 import os
@@ -35,8 +26,7 @@ from langchain_core.tools import tool, create_retriever_tool
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -99,15 +89,38 @@ retriever_tool = create_retriever_tool(
 
 tools = [calculator, retriever_tool]
 
-prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm, tools, prompt)
-
-agent_executor = AgentExecutor(
-    agent=agent,
+agent = create_agent(
+    model=llm,
     tools=tools,
-    verbose=True,  # Prints step-by-step reasoning
+    system_prompt="You are a helpful assistant. Use the available tools to answer questions.",
 )
 
+
+def print_reasoning_trace(messages: list) -> None:
+    """Print the full Thought → Action → Observation → Answer trace."""
+    for msg in messages:
+        msg_type = type(msg).__name__
+        tool_calls = getattr(msg, "tool_calls", None)
+
+        if tool_calls:
+            for tc in tool_calls:
+                print(f"\nAction: {tc['name']}")
+                print(f"Action Input: {tc['args']}")
+        elif msg_type == "ToolMessage":
+            print(f"Observation: {msg.content}")
+        elif msg_type == "AIMessage" and msg.content:
+            print(f"\nThought/Answer: {msg.content}")
+        elif msg_type == "HumanMessage":
+            print(f"Question: {msg.content}")
+
+
 if __name__ == "__main__":
-    result = agent_executor.invoke({"input": DEMO_QUERY})
-    print("\nFinal Answer:", result["output"])
+    result = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY}]})
+
+    print("=" * 80)
+    print("REASONING TRACE")
+    print("=" * 80)
+    print_reasoning_trace(result["messages"])
+
+    print("\n" + "=" * 80)
+    print("Final Answer:", result["messages"][-1].content)

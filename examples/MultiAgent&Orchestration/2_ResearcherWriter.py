@@ -19,18 +19,15 @@ from dotenv import load_dotenv
 from langchain_core.tools import tool
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
 # Edit the values below to adapt the script to your environment.
-LLM_TEMPERATURE     = 0          # 0 = deterministic output
-API_VERSION         = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-RESEARCHER_MAX_ITER = 8          # max researcher agent steps
-WRITER_MAX_ITER     = 6          # max writer agent steps
-DEMO_TOPIC          = "The impact of AI on productivity"  # research and article topic
+LLM_TEMPERATURE = 0          # 0 = deterministic output
+API_VERSION     = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
+DEMO_TOPIC      = "The impact of AI on productivity"  # research and article topic
 # ──────────────────────────────────────────────────────────────────────────────
 
 llm = AzureChatOpenAI(
@@ -91,34 +88,30 @@ def format_article(content: str) -> str:
 {content}
 
 ---
-*Published: 2025*"""
+*Published: 2026*"""
 
 
 # ── Researcher Agent ──────────────────────────────────────────────────────────
 
-researcher_tools = [search_papers, search_news, search_statistics]
-researcher_prompt = hub.pull("hwchase17/react")
-researcher_agent = create_react_agent(llm, researcher_tools, researcher_prompt)
-researcher_executor = AgentExecutor(
-    agent=researcher_agent,
-    tools=researcher_tools,
-    verbose=True,
-    max_iterations=RESEARCHER_MAX_ITER,
-    handle_parsing_errors=True,
+researcher_agent = create_agent(
+    model=llm,
+    tools=[search_papers, search_news, search_statistics],
+    system_prompt=(
+        "You are a research specialist. Gather comprehensive information from "
+        "available tools and compile a detailed research summary."
+    ),
 )
 
 
 # ── Writer Agent ──────────────────────────────────────────────────────────────
 
-writer_tools = [create_outline, format_article]
-writer_prompt = hub.pull("hwchase17/react")
-writer_agent = create_react_agent(llm, writer_tools, writer_prompt)
-writer_executor = AgentExecutor(
-    agent=writer_agent,
-    tools=writer_tools,
-    verbose=True,
-    max_iterations=WRITER_MAX_ITER,
-    handle_parsing_errors=True,
+writer_agent = create_agent(
+    model=llm,
+    tools=[create_outline, format_article],
+    system_prompt=(
+        "You are a professional writer. Create well-structured, engaging articles "
+        "based on provided research. Always create an outline first, then write the article."
+    ),
 )
 
 
@@ -141,8 +134,8 @@ Find:
 
 Compile all findings into a comprehensive research summary."""
 
-    research_result = researcher_executor.invoke({"input": research_task})
-    research_findings = research_result["output"]
+    research_result = researcher_agent.invoke({"messages": [{"role": "user", "content": research_task}]})
+    research_findings = research_result["messages"][-1].content
 
     print("\n" + "=" * 80)
     print("RESEARCH FINDINGS:")
@@ -166,9 +159,9 @@ Steps:
 
 Create a complete, well-structured article."""
 
-    writing_result = writer_executor.invoke({"input": writing_task})
+    writing_result = writer_agent.invoke({"messages": [{"role": "user", "content": writing_task}]})
 
-    return writing_result["output"]
+    return writing_result["messages"][-1].content
 
 
 if __name__ == "__main__":

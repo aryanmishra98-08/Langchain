@@ -1,8 +1,7 @@
 # =============================================================================
 # Section 5.4 — Multi-Agent Communication: Hierarchical Pattern
 # Topic:  A ManagerWorkerSystem where a Manager LCEL chain parses a high-level
-#         task into subtask assignments and dispatches them to named Worker
-#         AgentExecutors.
+#         task into subtask assignments and dispatches them to named Worker agents.
 # =============================================================================
 # Communication pattern:
 #         Manager
@@ -12,7 +11,7 @@
 # Manager output format: "ASSIGN: worker_name | task_description"
 # The _parse_assignments method extracts these lines and routes subtasks.
 #
-# To use: instantiate with a list of {"name": str, "executor": AgentExecutor}
+# To use: instantiate with a list of {"name": str, "agent": create_agent(...)}
 # worker dicts, then call system.execute(task).
 # =============================================================================
 
@@ -26,7 +25,7 @@ from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -36,7 +35,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 # Edit the values below to adapt the script to your environment.
 LLM_TEMPERATURE = 0                          # 0 = deterministic output
 API_VERSION     = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-MAX_ITERATIONS  = 5                          # max steps per worker agent
 DEMO_TASK       = "Fetch user data from the database and calculate 1000 * 12 for the annual projection."
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -70,14 +68,12 @@ def calculator(expression: str) -> str:
         return f"Error: {e}"
 
 
-def _make_executor(tools_list):
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a helpful worker agent. Complete the assigned task."),
-        ("human", "{input}"),
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-    agent = create_tool_calling_agent(llm=llm, tools=tools_list, prompt=prompt)
-    return AgentExecutor(agent=agent, tools=tools_list, verbose=True, max_iterations=MAX_ITERATIONS)
+def _make_worker(tools_list: list, role: str):
+    return create_agent(
+        model=llm,
+        tools=tools_list,
+        system_prompt=f"You are a {role}. Complete the assigned task using your tools.",
+    )
 
 
 # ── ManagerWorkerSystem ───────────────────────────────────────────────────────
@@ -85,7 +81,7 @@ def _make_executor(tools_list):
 class ManagerWorkerSystem:
     def __init__(self, llm, workers: list):
         self.llm = llm
-        self.workers = {w["name"]: w["executor"] for w in workers}
+        self.workers = {w["name"]: w["agent"] for w in workers}
         self.manager_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a manager agent coordinating workers.
 Available workers: {workers}
@@ -94,7 +90,6 @@ For each subtask, assign it to the appropriate worker.
 Format: ASSIGN: worker_name | task_description"""),
             ("human", "{task}"),
         ])
-        # Build LCEL chain for manager
         self.manager_chain = self.manager_prompt | self.llm
 
     def execute(self, task: str) -> Dict:
@@ -112,9 +107,11 @@ Format: ASSIGN: worker_name | task_description"""),
             if worker_name not in self.workers:
                 results[worker_name] = f"Error: unknown worker '{worker_name}'"
                 continue
-            print(f"\n🔧 {worker_name} executing: {subtask}")
-            result = self.workers[worker_name].invoke({"input": subtask})
-            results[worker_name] = result["output"]
+            print(f"\n{worker_name} executing: {subtask}")
+            result = self.workers[worker_name].invoke(
+                {"messages": [{"role": "user", "content": subtask}]}
+            )
+            results[worker_name] = result["messages"][-1].content
 
         return results
 
@@ -134,14 +131,14 @@ Format: ASSIGN: worker_name | task_description"""),
 # ── Example usage ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    data_worker = _make_executor([fetch_data])
-    calc_worker = _make_executor([calculator])
+    data_worker = _make_worker([fetch_data], role="data retrieval specialist")
+    calc_worker = _make_worker([calculator], role="calculation specialist")
 
     system = ManagerWorkerSystem(
         llm=llm,
         workers=[
-            {"name": "DataWorker", "executor": data_worker},
-            {"name": "CalcWorker", "executor": calc_worker},
+            {"name": "DataWorker", "agent": data_worker},
+            {"name": "CalcWorker", "agent": calc_worker},
         ],
     )
 

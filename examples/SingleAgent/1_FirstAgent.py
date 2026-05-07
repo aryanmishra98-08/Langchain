@@ -5,6 +5,10 @@
 #           1. Calculation only
 #           2. Retrieval only
 #           3. Both tools required
+#
+# LangChain 1.0: create_agent() replaces create_react_agent + AgentExecutor.
+# Input:  {"messages": [{"role": "user", "content": "..."}]}
+# Output: result["messages"][-1].content
 # =============================================================================
 
 import os
@@ -16,8 +20,7 @@ from langchain_core.tools import tool, create_retriever_tool
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -27,7 +30,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 # Edit the values below to adapt the script to your environment.
 LLM_TEMPERATURE = 0                          # 0 = deterministic output
 API_VERSION     = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-MAX_ITERATIONS  = 5                          # max agent reasoning steps
 RETRIEVER_K     = 2                          # number of documents retrieved per query
 DEMO_QUERY_1    = "If the company's revenue was $5 million and grew by 30%, what is the new revenue?"
 DEMO_QUERY_2    = "When was the company founded?"
@@ -84,37 +86,26 @@ retriever_tool = create_retriever_tool(
     ),
 )
 
-# Create tools list
 tools = [calculator, retriever_tool]
 
-# Get the ReAct prompt
-prompt = hub.pull("hwchase17/react")
-
-# Create agent
-agent = create_react_agent(llm, tools, prompt)
-
-# Create executor
-agent_executor = AgentExecutor(
-    agent=agent,
+agent = create_agent(
+    model=llm,
     tools=tools,
-    verbose=True,
-    handle_parsing_errors=True,
-    max_iterations=MAX_ITERATIONS,
+    system_prompt="You are a helpful assistant. Use the available tools to answer questions accurately.",
 )
 
-# Test queries
 if __name__ == "__main__":
     # Query 1: Requires calculation
-    result1 = agent_executor.invoke({"input": DEMO_QUERY_1})
+    result1 = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY_1}]})
     print("\n" + "=" * 80)
-    print("Result 1:", result1["output"])
+    print("Result 1:", result1["messages"][-1].content)
 
     # Query 2: Requires retrieval only
-    result2 = agent_executor.invoke({"input": DEMO_QUERY_2})
+    result2 = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY_2}]})
     print("\n" + "=" * 80)
-    print("Result 2:", result2["output"])
+    print("Result 2:", result2["messages"][-1].content)
 
     # Query 3: Requires both tools
-    result3 = agent_executor.invoke({"input": DEMO_QUERY_3})
+    result3 = agent.invoke({"messages": [{"role": "user", "content": DEMO_QUERY_3}]})
     print("\n" + "=" * 80)
-    print("Result 3:", result3["output"])
+    print("Result 3:", result3["messages"][-1].content)

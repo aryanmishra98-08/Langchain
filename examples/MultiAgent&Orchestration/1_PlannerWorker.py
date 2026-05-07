@@ -1,13 +1,13 @@
 # =============================================================================
 # Section 5.1 — Multi-Agent Pattern 1: Planner + Worker
 # Topic:  One agent (LCEL chain) plans a task as a numbered list; a second
-#         agent (AgentExecutor) executes the plan using fetch/process/report
+#         agent (create_agent) executes the plan using fetch/process/report
 #         tools. Demonstrates sequential (pipeline) communication pattern.
 # =============================================================================
 # Communication pattern: Agent1 → Result → Agent2
 #
 # The Planner is an LCEL chain (no agent needed for pure text planning).
-# The Worker is a full ReAct AgentExecutor with domain tools.
+# The Worker is a full create_agent with domain tools.
 # =============================================================================
 
 import os
@@ -20,8 +20,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import AzureChatOpenAI
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 
@@ -29,7 +28,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 # Edit the values below to adapt the script to your environment.
 LLM_TEMPERATURE = 0                          # 0 = deterministic output
 API_VERSION     = os.getenv("AZURE_OPENAI_API_VERSION")  # Azure OpenAI API version
-MAX_ITERATIONS  = 10                         # max worker agent steps before forced stop
 DEMO_TASK       = "Create a report on user activity including data from database and API"
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -85,14 +83,10 @@ planner_chain = planner_prompt | llm | StrOutputParser()
 # ── Worker Agent ──────────────────────────────────────────────────────────────
 
 worker_tools = [fetch_data, process_data, generate_report]
-worker_prompt = hub.pull("hwchase17/react")
-worker_agent = create_react_agent(llm, worker_tools, worker_prompt)
-worker_executor = AgentExecutor(
-    agent=worker_agent,
+worker_agent = create_agent(
+    model=llm,
     tools=worker_tools,
-    verbose=True,
-    max_iterations=MAX_ITERATIONS,
-    handle_parsing_errors=True,
+    system_prompt="You are a helpful worker agent. Complete the assigned task using the available tools.",
 )
 
 
@@ -121,9 +115,9 @@ Original Task: {task}
 
 Complete each step and provide the final result."""
 
-    result = worker_executor.invoke({"input": worker_task})
+    result = worker_agent.invoke({"messages": [{"role": "user", "content": worker_task}]})
 
-    return result["output"]
+    return result["messages"][-1].content
 
 
 if __name__ == "__main__":

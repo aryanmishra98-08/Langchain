@@ -3,12 +3,10 @@
 # Topic:  A custom BaseCallbackHandler that intercepts agent lifecycle events
 #         (action taken, tool start, tool end, agent finish) and stores them
 #         for later inspection. Passed via config={"callbacks": [...]}.
-# =============================================================================
-# Migration note:
-#   from langchain.callbacks.base  →  from langchain_core.callbacks
-#   Callbacks are now passed via config={"callbacks": [...]} in .invoke() calls
-#   (the LCEL standard), though direct callbacks=[...] params still work for
-#   backward compatibility.
+#
+# BaseCallbackHandler still works in LangChain 1.0 and is passed the same way.
+# For new production code, prefer the middleware system (see ProductionPatterns/).
+# Callbacks remain useful for dev-time inspection and third-party integrations.
 #
 # Note: on_tool_end receives a ToolMessage object in modern versions;
 # always use str(output) for safe string conversion.
@@ -25,8 +23,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain import hub
+from langchain.agents import create_agent
 
 import numexpr
 
@@ -86,9 +83,12 @@ retriever_tool = create_retriever_tool(
 )
 
 tools = [calculator, retriever_tool]
-prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
+
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="You are a helpful assistant.",
+)
 
 
 class CustomAgentCallbackHandler(BaseCallbackHandler):
@@ -97,7 +97,7 @@ class CustomAgentCallbackHandler(BaseCallbackHandler):
 
     def on_agent_action(self, action, **kwargs):
         """Called when agent takes an action"""
-        print(f"\n🤔 Agent is using: {action.tool}")
+        print(f"\nAgent is using: {action.tool}")
         print(f"   Input: {action.tool_input}")
         self.steps.append({
             "type": "action",
@@ -107,7 +107,7 @@ class CustomAgentCallbackHandler(BaseCallbackHandler):
 
     def on_agent_finish(self, finish, **kwargs):
         """Called when agent finishes"""
-        print(f"\n✅ Agent finished: {finish.return_values}")
+        print(f"\nAgent finished: {finish.return_values}")
         self.steps.append({
             "type": "finish",
             "output": finish.return_values,
@@ -115,24 +115,24 @@ class CustomAgentCallbackHandler(BaseCallbackHandler):
 
     def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs):
         """Called when tool starts"""
-        print(f"   ⚙️  Tool starting...")
+        print(f"   Tool starting...")
 
     def on_tool_end(self, output: str, **kwargs):
         """Called when tool ends"""
         # output is now a ToolMessage in modern versions; use str() for safety
         output_str = str(output)
-        print(f"   ✓ Tool output: {output_str[:100]}...")
+        print(f"   Tool output: {output_str[:100]}...")
 
 
 if __name__ == "__main__":
-    # Use callback
     callback_handler = CustomAgentCallbackHandler()
-    result = agent_executor.invoke(
-        {"input": DEMO_QUERY},
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": DEMO_QUERY}]},
         config={"callbacks": [callback_handler]},
     )
 
-    # Access captured steps
     print("\n\nCaptured Steps:")
     for i, step in enumerate(callback_handler.steps, 1):
         print(f"{i}. {step}")
+
+    print("\nFinal Answer:", result["messages"][-1].content)
