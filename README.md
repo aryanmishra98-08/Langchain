@@ -70,7 +70,7 @@ Langchain/
 
 ## Setup
 
-This project uses **Azure OpenAI** for both chat completion and embeddings. You'll need an Azure OpenAI resource with deployments for a chat model (e.g. `gpt-4o`) and an embeddings model (e.g. `text-embedding-3-small`).
+This project uses **Azure OpenAI** for both chat completion and embeddings. You'll need an Azure OpenAI resource with deployments for a chat model (e.g. `gpt-4.1-mini`) and an embeddings model (e.g. `text-embedding-ada-002`).
 
 ```bash
 # 1. Create and activate virtual environment
@@ -79,16 +79,18 @@ source myenv/bin/activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
+```
 
-# 3. Create keys/.env with your Azure OpenAI credentials
-mkdir -p keys
-cat > keys/.env <<'EOF'
-AZURE_OPENAI_API_KEY=your-azure-openai-key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-OPENAI_API_VERSION=2024-10-21
-AZURE_OPENAI_CHAT_DEPLOYMENT=your-chat-deployment-name
-AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=your-embeddings-deployment-name
-EOF
+See [requirements.txt](requirements.txt) for the full pinned dependency list.
+
+Copy `keys/.env.example` to `keys/.env` and fill in your Azure OpenAI credentials:
+
+```
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=...
+AZURE_OPENAI_CHAT_DEPLOYMENT=...
+AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=...
+AZURE_OPENAI_API_VERSION=...
 ```
 
 Every example loads this file via `load_dotenv(dotenv_path=… / "keys" / ".env")`, so the credentials only need to live in one place.
