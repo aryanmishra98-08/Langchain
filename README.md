@@ -54,14 +54,13 @@ pip install -r requirements.txt
 
 ### 2. Configure your API key
 
-Create a `keys/.env` file with your credentials:
+Copy `keys/.env.example` to `keys/.env` and fill in your Azure OpenAI credentials:
 
-```env
-# Azure OpenAI Credentials
-AZURE_OPENAI_API_KEY=your-key-here
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_VERSION=2024-02-01
-AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+```
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=...
+AZURE_OPENAI_API_VERSION=...
+AZURE_OPENAI_DEPLOYMENT_NAME=...
 ```
 
 All examples load this file automatically via:
