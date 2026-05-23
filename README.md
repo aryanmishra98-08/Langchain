@@ -1,284 +1,191 @@
-# LangChain RAG: Comprehensive Intermediate Learning Guide
+# LangChain RAG: A Progressive Hands-On Guide
 
-A structured, example-driven repository for learning RAG with [LangChain](https://www.langchain.com/) — the leading open-source framework for building applications powered by large language models. Each example builds on the last, taking you from your first Data Extraction to a production-ready RAG QA Chatbot.
+A structured, example-driven repository for learning Retrieval-Augmented Generation (RAG) with [LangChain](https://www.langchain.com/) — the leading open-source framework for building LLM-powered applications. Each example builds on the last, taking you from loading your first document to a production-ready conversational PDF chatbot.
 
-**Target Audience:** Developers with LangChain basics and LLM invocation experience  
-**Duration:** 8-12 hours of hands-on learning  
-**Prerequisites:** Python 3.8+, Basic LangChain knowledge, Understanding of LLMs
+**Target Audience:** Developers with basic LangChain and LLM experience  
+**Duration:** 2–3 hours of hands-on learning  
+**Prerequisites:** Python 3.11+, Azure OpenAI credentials, Familiarity with LLM concepts
+
+---
+
+## Philosophy
+
+RAG is powerful, but assembling its components — loaders, splitters, embeddings, vector stores, and retrieval chains — can feel overwhelming without a clear progression. This repository distills the full RAG stack into **18 focused, runnable examples** organized into four progressive learning tracks. The guiding principles are:
+
+- **Learn by doing.** Every concept is a standalone Python script you can run, modify, and experiment with immediately.
+- **Progressive complexity.** Examples are ordered so that each one introduces exactly one new idea on top of what came before.
+- **Production awareness.** The journey doesn't stop at a basic Q&A chain. The final examples cover multi-query retrieval, conversational memory, source citations, and a fully deployable chatbot class.
 
 ---
 
 ## Table of Contents
 
-1. [RAG Fundamentals](#1-rag-fundamentals)
-2. [Vector Embeddings Deep Dive](#2-vector-embeddings-deep-dive)
-3. [Document Loading & Processing](#3-document-loading--processing)
-4. [Text Chunking Strategies](#4-text-chunking-strategies)
-5. [Vector Stores & Similarity Search](#5-vector-stores--similarity-search)
-6. [Building RAG Pipelines](#6-building-rag-pipelines)
-7. [Advanced RAG Patterns](#7-advanced-rag-patterns)
-8. [Intermediate Project: PDF Q&A Chatbot](#8-intermediate-project-pdf-qa-chatbot)
-9. [Performance Optimization](#9-performance-optimization)
-10. [Exercises & Challenges](#10-exercises--challenges)
-11. [Troubleshooting (macOS)](#11-troubleshooting-macos)
+1. [Quick Start](#quick-start)
+2. [Repository Structure](#repository-structure)
+3. [What is RAG?](#what-is-rag)
+4. [Track 1 — Document Loading and Processing](#track-1--document-loading-and-processing-examples-15)
+5. [Track 2 — Text Chunking Strategies](#track-2--text-chunking-strategies-examples-14)
+6. [Track 3 — Vector Stores and Similarity Search](#track-3--vector-stores-and-similarity-search-examples-12)
+7. [Track 4 — Building RAG Pipelines](#track-4--building-rag-pipelines-examples-16)
+8. [Core Concepts at a Glance](#core-concepts-at-a-glance)
+9. [Navigating the Examples](#navigating-the-examples)
+10. [Retrieval Strategy Comparison](#retrieval-strategy-comparison)
+11. [Migrating from Legacy APIs](#migrating-from-legacy-apis)
+12. [Additional Resources](#additional-resources)
 
 ---
 
-## Project Structure
+## Quick Start
 
-```
-Langchain/
-├── README.md
-├── LICENSE
-├── .gitignore
-├── requirements.txt
-├── keys/
-│   └── .env                           # Azure OpenAI credentials (loaded by every example)
-├── myenv/                             # Python 3.11 virtual environment
-├── examples/
-│   ├── data/
-│   │   ├── TheFrenchRevolution.txt    # Sample dataset (text)
-│   │   ├── TheFrenchRevolution.pdf    # Sample dataset (PDF)
-│   │   └── TheFrenchRevolution.docx   # Sample dataset (Word)
-│   ├── DocumentLoading&Processing/    # Section 3 examples
-│   │   ├── 1_TextLoader.py
-│   │   ├── 2_PDFLoader.py
-│   │   ├── 3_WebUrlLoader.py
-│   │   ├── 4_DirectoryLoader.py
-│   │   └── 5_CompleteFileLoaderExample.py
-│   ├── TextChunkingStrategies/        # Section 4 examples
-│   │   ├── 1_Chunking.py
-│   │   ├── 2_OptimalChunkingParameters.py
-│   │   ├── 3_AdvancedSemanticChunking.py
-│   │   └── 4_PracticalChunkingExample.py
-│   ├── VectorStores&SimilaritySearch/ # Section 5 examples
-│   │   ├── 1_ChromaDBSetup&SampleSearch.py
-│   │   └── 2_CompleteVectorStoreExample.py
-│   ├── BuildingRAGPipelines/          # Section 6 examples
-│   │   ├── 1_BasicRAGChain.py
-│   │   ├── 2_ModernRAGwithLCEL.py
-│   │   ├── 3_RAGwithSourceCitations.py
-│   │   ├── 4_MultiQueryRAG.py
-│   │   ├── 5_ConversationalRAG.py
-│   │   └── 6_CompleteProductionReadyRAGSystem.py
-│   └── CompleteRAGImplementation.py   # Section 8 full project
-```
+### Prerequisites
 
-> **Sample data:** The repo ships with `TheFrenchRevolution.{txt,pdf,docx}` so every example runs out of the box once your `keys/.env` is configured.
+- Python 3.11 or later
+- An Azure OpenAI resource with a chat deployment (e.g., `gpt-4o`) and an embeddings deployment (e.g., `text-embedding-ada-002`) — the examples are wired for Azure OpenAI by default, but swapping providers requires only changing the model class and credentials.
 
----
-
-## Setup
-
-This project uses **Azure OpenAI** for both chat completion and embeddings. You'll need an Azure OpenAI resource with deployments for a chat model (e.g. `gpt-4.1-mini`) and an embeddings model (e.g. `text-embedding-ada-002`).
+### 1. Clone and install dependencies
 
 ```bash
-# 1. Create and activate virtual environment
-python3 -m venv myenv
-source myenv/bin/activate
-
-# 2. Install dependencies
+git clone <repository-url>
+cd Langchain
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-See [requirements.txt](requirements.txt) for the full pinned dependency list.
+### 2. Configure your API keys
 
 Copy `keys/.env.example` to `keys/.env` and fill in your Azure OpenAI credentials:
 
 ```
-AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_ENDPOINT=...
-AZURE_OPENAI_CHAT_DEPLOYMENT=...
-AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=...
-AZURE_OPENAI_API_VERSION=...
+AZURE_OPENAI_API_KEY=your-azure-openai-api-key-here
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-ada-002
+AZURE_OPENAI_API_VERSION=2024-10-21
 ```
 
-Every example loads this file via `load_dotenv(dotenv_path=… / "keys" / ".env")`, so the credentials only need to live in one place.
-
-### Configuration blocks
-
-Each example script has a clearly marked `# ── CONFIGURATION ──` block at the top with editable constants (data file path, chunk size, demo queries, etc.). To adapt an example to your own use case, edit those constants — you generally don't need to touch the rest of the file.
-
----
-
-## 1. RAG Fundamentals
-
-### 1.1 Why RAG?
-
-**The Problem: LLM Hallucinations**
-
-```
-User: "What was our company's Q3 revenue?"
-LLM (without RAG): "Based on typical industry patterns, I estimate..."
-❌ WRONG: The LLM is making up information
-```
-
-**The Solution: Retrieval-Augmented Generation**
-
-```
-User: "What was our company's Q3 revenue?"
-System:
-  1. Retrieve: Search company documents → Find: "Q3 revenue: $45M"
-  2. Augment: Add retrieved context to prompt
-  3. Generate: LLM answers: "According to Q3 report, revenue was $45M"
-✅ CORRECT: Grounded in actual documents
-```
-
-### 1.2 RAG Architecture
-
-```
-┌─────────────┐
-│  User Query │
-└──────┬──────┘
-       │
-       ▼
-┌──────────────────────────────────────┐
-│  STEP 1: EMBEDDING GENERATION        │
-│  Query → Vector Representation       │
-│  "What is RAG?" → [0.2, 0.8, ...]    │
-└──────┬───────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────┐
-│  STEP 2: SIMILARITY SEARCH           │
-│  Find k most similar documents       │
-│  Vector DB: Compare embeddings       │
-└──────┬───────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────┐
-│  STEP 3: CONTEXT RETRIEVAL           │
-│  Retrieved Docs: [Doc1, Doc2, Doc3]  │
-└──────┬───────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────┐
-│  STEP 4: PROMPT AUGMENTATION         │
-│  Combine: Query + Retrieved Context  │
-└──────┬───────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────┐
-│  STEP 5: LLM GENERATION              │
-│  Generate answer using context       │
-└──────┬───────────────────────────────┘
-       │
-       ▼
-┌──────────────┐
-│    Answer    │
-└──────────────┘
-```
-
-### 1.3 Key Components
-
-1. **Document Loader**: Ingests various file formats
-2. **Text Splitter**: Breaks documents into chunks
-3. **Embedding Model**: Converts text to vectors
-4. **Vector Store**: Stores and searches embeddings
-5. **Retriever**: Fetches relevant documents
-6. **LLM**: Generates final answer
-
----
-
-## 2. Vector Embeddings Deep Dive
-
-### 2.1 What Are Embeddings?
-
-Embeddings are numerical representations of text that capture semantic meaning.
+All examples that require credentials load this file automatically via:
 
 ```python
-# Conceptual example (simplified)
-"dog" → [0.8, 0.2, 0.1, ...]  # 1536 dimensions
-"puppy" → [0.7, 0.3, 0.15, ...] # Similar vector!
-"car" → [0.1, 0.05, 0.9, ...]  # Different vector
-
-# Similarity (cosine distance)
-similarity("dog", "puppy") = 0.95  # High similarity
-similarity("dog", "car") = 0.12    # Low similarity
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
 ```
 
-### 2.2 Visual Representation
+### 3. Run your first example
 
-```
-High-dimensional space (simplified to 2D):
-
-                   cat •
-                      /|\
-                     / | \
-                    /  |  \
-           kitten •    |   • puppy
-                  \    |    /
-                   \   |   /
-                    \  |  /
-                     \ | /
-                      \|/
-                      dog •
-
-
-                              • car
-                             /
-                            /
-                           • truck
+```bash
+python "examples/DocumentLoading&Processing/1_TextLoader.py"
 ```
 
-### 2.3 Embedding Models
-
-**Popular Options:**
-- **Azure OpenAI / OpenAI**: `text-embedding-3-small` (1536 dims), `text-embedding-3-large` (3072 dims). Legacy: `text-embedding-ada-002` (1536 dims).
-- **HuggingFace**: `sentence-transformers/all-MiniLM-L6-v2` (384 dims)
-- **Cohere**: `embed-english-v3.0`
-
-> On Azure OpenAI you reference embedding models by **deployment name**, not model name. The examples in this repo read the deployment name from `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`.
-
-**Cost vs Performance:**
-- Larger dimensions = Better accuracy, Higher cost
-- Smaller dimensions = Faster search, Lower accuracy
+If you see `Loaded 1 document(s)` followed by a content preview, you're ready to go.
 
 ---
 
-## 3. Document Loading & Processing
-
-> **Examples:** `examples/DocumentLoading&Processing/`
-
-### 3.1 Setup & Installation
-
-All dependencies are pinned in [requirements.txt](requirements.txt) and installed in one step:
-
-```bash
-pip install -r requirements.txt
-```
-
-That installs:
+## Repository Structure
 
 ```
-# Core LangChain (v1.x)
-langchain, langchain-classic, langchain-community, langchain-core
-langchain-openai, langchain-chroma, langchain-text-splitters, langchain-experimental
-
-# Vector store backend
-chromadb
-
-# Tokenization
-tiktoken
-
-# Document loaders
-pypdf, beautifulsoup4
-
-# Utilities
-python-dotenv
+Langchain/
+├── README.md                                       ← You are here
+├── requirements.txt                                ← Python dependencies
+├── LICENSE                                         ← Apache 2.0
+├── keys/
+│   ├── .env.example                                ← Credential template
+│   └── .env                                        ← Your API keys (not committed)
+└── examples/
+    ├── data/
+    │   ├── TheFrenchRevolution.txt                 ← Sample text document
+    │   ├── TheFrenchRevolution.pdf                 ← Sample PDF document
+    │   └── TheFrenchRevolution.docx                ← Sample Word document
+    ├── DocumentLoading&Processing/
+    │   ├── 1_TextLoader.py                         ← Load a plain text file
+    │   ├── 2_PDFLoader.py                          ← Load a PDF page-by-page
+    │   ├── 3_WebUrlLoader.py                       ← Load from web URLs
+    │   ├── 4_DirectoryLoader.py                    ← Bulk-load a directory of files
+    │   └── 5_CompleteFileLoaderExample.py          ← Multi-format loader pipeline
+    ├── TextChunkingStrategies/
+    │   ├── 1_Chunking.py                           ← Three core splitting strategies
+    │   ├── 2_OptimalChunkingParameters.py          ← Use-case-tuned chunk configs
+    │   ├── 3_AdvancedSemanticChunking.py           ← Embedding-based semantic splits
+    │   └── 4_PracticalChunkingExample.py           ← End-to-end chunk pipeline
+    ├── VectorStores&SimilaritySearch/
+    │   ├── 1_ChromaDBSetup&SampleSearch.py         ← Create a Chroma store and search
+    │   └── 2_CompleteVectorStoreExample.py         ← Reusable DocumentVectorStore class
+    ├── BuildingRAGPipelines/
+    │   ├── 1_BasicRAGChain.py                      ← Classic retrieval chain
+    │   ├── 2_ModernRAGwithLCEL.py                  ← LCEL pipe-style RAG chain
+    │   ├── 3_RAGwithSourceCitations.py             ← Answers with page-level citations
+    │   ├── 4_MultiQueryRAG.py                      ← Multi-query retrieval
+    │   ├── 5_ConversationalRAG.py                  ← History-aware follow-up questions
+    │   └── 6_CompleteProductionReadyRAGSystem.py   ← ProductionRAGSystem class
+    └── CompleteRAGImplementation.py                ← Capstone: PDF Q&A chatbot
 ```
 
-### 3.2 Loading Different Document Types
+---
 
-#### 3.2.1 Text Files
+## What is RAG?
 
-> See: [examples/DocumentLoading&Processing/1_TextLoader.py](examples/DocumentLoading&Processing/1_TextLoader.py)
+**Retrieval-Augmented Generation (RAG)** is a pattern for building LLM applications that answer questions grounded in a specific set of documents rather than the model's training data alone. It works by retrieving the most relevant passages from a document store at query time and injecting them into the prompt as context.
+
+### Why use RAG?
+
+Without it, you would need to:
+- Fine-tune a model every time your knowledge base changes
+- Trust the model to recall facts it may have hallucinated or never seen
+- Manually manage context windows and source attribution
+- Build custom search infrastructure from scratch for every project
+
+LangChain abstracts all of this into a unified, composable interface.
+
+### Core building blocks
+
+| Concept | Description |
+|---------|-------------|
+| **Document Loaders** | Ingest text from files (PDF, TXT, DOCX), URLs, and directories into `Document` objects |
+| **Text Splitters** | Divide large documents into retrieval-friendly chunks with configurable size and overlap |
+| **Embeddings** | Convert text chunks into dense vector representations for semantic search |
+| **Vector Stores** | Index and persist embeddings; serve nearest-neighbor queries at runtime |
+| **Retrievers** | Query a vector store and return the most relevant chunks for a given question |
+| **RAG Chains** | Combine retriever + prompt + LLM into a single pipeline that answers grounded questions |
+
+---
+
+## Track 1 — Document Loading and Processing (Examples 1–5)
+
+### Theory
+
+At its core, every RAG pipeline starts by turning raw files into LangChain `Document` objects. A `Document` carries two fields: `page_content` (the raw text) and `metadata` (a dict of source information like file path, page number, or URL).
+
+LangChain provides loader classes for every common source type. Each loader exposes the same two-method interface:
+
+| Method | Returns | Use When |
+|--------|---------|----------|
+| `.load()` | `List[Document]` | You want all pages at once |
+| `.lazy_load()` | `Iterator[Document]` | You need memory-efficient streaming for large corpora |
+
+The `metadata` dict is automatically populated by each loader — for PDFs it includes `{"source": "path/to/file.pdf", "page": 0}`, for web pages it includes the URL and title. This metadata flows through the entire pipeline unchanged and is what powers source citations in Track 4.
+
+Different loaders produce different document granularity:
+
+| Loader | Granularity | Notes |
+|--------|-------------|-------|
+| `TextLoader` | One `Document` per file | Entire file as `page_content` |
+| `PyPDFLoader` | One `Document` per page | `metadata["page"]` is zero-indexed |
+| `WebBaseLoader` | One `Document` per URL | Strips HTML automatically |
+| `DirectoryLoader` | One `Document` per matched file | Delegates to a per-file loader class |
+
+---
+
+### Example 1 — Text Loader
+
+**File:** `examples/DocumentLoading&Processing/1_TextLoader.py`
+
+Loads a plain `.txt` file and inspects the resulting `Document` object.
 
 ```python
 from pathlib import Path
 from langchain_community.document_loaders import TextLoader
 
-DATA_FILE = Path("examples/data/TheFrenchRevolution.txt")
+DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "TheFrenchRevolution.txt"
 
 loader = TextLoader(str(DATA_FILE), encoding="utf-8")
 documents = loader.load()
@@ -288,15 +195,29 @@ print(f"Content preview: {documents[0].page_content[:200]}")
 print(f"Metadata: {documents[0].metadata}")
 ```
 
-#### 3.2.2 PDF Documents
+- `TextLoader` treats the entire file as a single `Document` — `len(documents)` will be 1.
+- `documents[0].metadata` will contain `{"source": "/path/to/TheFrenchRevolution.txt"}`.
 
-> See: [examples/DocumentLoading&Processing/2_PDFLoader.py](examples/DocumentLoading&Processing/2_PDFLoader.py)
+**Run it:**
+```bash
+python "examples/DocumentLoading&Processing/1_TextLoader.py"
+```
+
+---
+
+### Example 2 — PDF Loader
+
+**File:** `examples/DocumentLoading&Processing/2_PDFLoader.py`
+
+Loads a PDF and splits it automatically — one `Document` per page.
 
 ```python
+from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
 
-# Load PDF with page-level granularity
-loader = PyPDFLoader("examples/data/TheFrenchRevolution.pdf")
+PDF_FILE = Path(__file__).resolve().parents[1] / "data" / "TheFrenchRevolution.pdf"
+
+loader = PyPDFLoader(str(PDF_FILE))
 pages = loader.load()
 
 print(f"Total pages: {len(pages)}")
@@ -306,32 +227,64 @@ for i, page in enumerate(pages[:3]):
     print(f"Metadata: {page.metadata}")
 ```
 
-#### 3.2.3 Web Pages
+- `PyPDFLoader` returns one `Document` per page, so `len(pages)` equals the page count of the PDF.
+- Each page's metadata includes `{"source": "...", "page": 0}` — the `page` key is zero-indexed.
 
-> See: [examples/DocumentLoading&Processing/3_WebUrlLoader.py](examples/DocumentLoading&Processing/3_WebUrlLoader.py)
+**Run it:**
+```bash
+python "examples/DocumentLoading&Processing/2_PDFLoader.py"
+```
+
+---
+
+### Example 3 — Web URL Loader
+
+**File:** `examples/DocumentLoading&Processing/3_WebUrlLoader.py`
+
+Fetches and parses web pages directly from a list of URLs.
 
 ```python
 from langchain_community.document_loaders import WebBaseLoader
 
-loader = WebBaseLoader([
+URLS = [
     "https://python.langchain.com/docs/tutorials/rag/",
     "https://python.langchain.com/docs/concepts/",
-])
+]
+
+loader = WebBaseLoader(URLS)
 docs = loader.load()
 
 print(f"Loaded {len(docs)} web page(s)")
+print(f"Content preview: {docs[0].page_content[:200]}...")
+print(f"Metadata: {docs[0].metadata}")
 ```
 
-#### 3.2.4 Directory Loader (Multiple Files)
+- Pass a list of URLs; `WebBaseLoader` fetches and strips HTML for each one in a single call.
+- Metadata includes the page title and source URL automatically.
 
-> See: [examples/DocumentLoading&Processing/4_DirectoryLoader.py](examples/DocumentLoading&Processing/4_DirectoryLoader.py)
+**Run it:**
+```bash
+python "examples/DocumentLoading&Processing/3_WebUrlLoader.py"
+```
+
+---
+
+### Example 4 — Directory Loader
+
+**File:** `examples/DocumentLoading&Processing/4_DirectoryLoader.py`
+
+Bulk-loads all files matching a glob pattern from a directory, with optional multithreading.
 
 ```python
-from langchain_community.document_loaders import DirectoryLoader
+from pathlib import Path
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 loader = DirectoryLoader(
-    "examples/data",
+    DATA_DIR,
     glob="*.txt",
+    loader_cls=TextLoader,
     show_progress=True,
     use_multithreading=True,
 )
@@ -340,31 +293,30 @@ docs = loader.load()
 print(f"Loaded {len(docs)} documents from directory")
 ```
 
-### 3.3 Complete Loading Example
+- `glob` controls which files are matched — swap `"*.txt"` for `"*.pdf"` to load PDFs instead.
+- `use_multithreading=True` parallelizes file I/O, which makes a meaningful difference for large directories.
 
-> See: [examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py](examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py)
+**Run it:**
+```bash
+python "examples/DocumentLoading&Processing/4_DirectoryLoader.py"
+```
+
+---
+
+### Example 5 — Multi-Format Loader Pipeline
+
+**File:** `examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py`
+
+Combines PDF and text loaders into a single reusable function that ingests a mixed directory in one call.
 
 ```python
-from pathlib import Path
-from dotenv import load_dotenv
-from langchain_community.document_loaders import (
-    PyPDFLoader,
-    TextLoader,
-    DirectoryLoader,
-)
-
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / "keys" / ".env")
-
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, DirectoryLoader
 
 def load_documents(source_dir) -> list:
-    """Load PDFs and text files from a directory."""
     all_docs = []
 
     pdf_loader = DirectoryLoader(
-        source_dir,
-        glob="*.pdf",
-        loader_cls=PyPDFLoader,
-        show_progress=True,
+        source_dir, glob="*.pdf", loader_cls=PyPDFLoader, show_progress=True
     )
     all_docs.extend(pdf_loader.load())
 
@@ -379,32 +331,71 @@ def load_documents(source_dir) -> list:
 
     print(f"✓ Total documents: {len(all_docs)}")
     return all_docs
+```
 
+- `loader_kwargs` passes extra constructor arguments (like `encoding`) through to the underlying loader class.
+- The returned list is ready to pass directly into any text splitter in Track 2.
 
-documents = load_documents(Path(__file__).resolve().parents[1] / "data")
+**Run it:**
+```bash
+python "examples/DocumentLoading&Processing/5_CompleteFileLoaderExample.py"
 ```
 
 ---
 
-## 4. Text Chunking Strategies
+## Track 2 — Text Chunking Strategies (Examples 1–4)
 
-> **Examples:** `examples/TextChunkingStrategies/`
+### Theory
 
-### 4.1 Why Chunking?
+A **text splitter** divides large documents into smaller chunks that fit within a retrieval context window and carry enough coherence to be useful in isolation. The two key parameters are:
 
-**Problems with whole documents:**
-- Too large for embedding models (token limits)
-- Diluted relevance (mixing multiple topics)
-- Inefficient retrieval
+- **`chunk_size`** — the maximum number of characters (or tokens) per chunk.
+- **`chunk_overlap`** — the number of characters shared between consecutive chunks, which preserves context across boundaries and prevents answers from being cut in half.
 
-**Benefits of chunking:**
-- Precise retrieval
-- Better semantic matching
-- Manageable context size
+There are three main splitting approaches:
 
-### 4.2 Chunking Strategies Compared
+**`CharacterTextSplitter` — fixed separator:**
 
-> See: [examples/TextChunkingStrategies/1_Chunking.py](examples/TextChunkingStrategies/1_Chunking.py)
+```python
+splitter = CharacterTextSplitter(
+    separator="\n\n",
+    chunk_size=1000,
+    chunk_overlap=200,
+)
+```
+
+**`RecursiveCharacterTextSplitter` — cascading separators (recommended):**
+
+```python
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+    separators=["\n\n", "\n", " ", ""],  # tries each in order
+)
+```
+
+The recursive splitter tries the first separator; if the resulting chunk is still too large, it falls back to the next one. This produces more natural splits that respect paragraph and sentence boundaries compared to splitting at fixed character positions.
+
+**Why the choice of splitter matters:**
+
+The same document split with different strategies produces chunks of very different character:
+
+| Strategy | Splits On | Best For |
+|----------|-----------|----------|
+| `CharacterTextSplitter` | A single fixed separator | Clean, regularly-structured text |
+| `RecursiveCharacterTextSplitter` | Cascading separators (paragraphs → lines → words) | General prose and mixed documents |
+| `TokenTextSplitter` | OpenAI token count via `tiktoken` | When you need hard token budget limits |
+| `SemanticChunker` | Embedding-distance jumps between sentences | High-coherence chunks regardless of length |
+
+The `chunk_size` and `chunk_overlap` values are not one-size-fits-all. The right values depend on your retrieval use case — see Example 2 for presets tuned to the most common scenarios.
+
+---
+
+### Example 1 — Three Core Splitting Strategies
+
+**File:** `examples/TextChunkingStrategies/1_Chunking.py`
+
+Compares character-based, recursive, and token-based splitting on the same input text so you can see how chunk counts and boundaries differ.
 
 ```python
 from langchain_text_splitters import (
@@ -413,108 +404,73 @@ from langchain_text_splitters import (
     TokenTextSplitter,
 )
 
-# Sample text
-sample_text = """
-Artificial Intelligence (AI) has revolutionized many industries.
-Machine learning is a subset of AI.
+char_splitter      = CharacterTextSplitter(separator="\n\n", chunk_size=100, chunk_overlap=20)
+recursive_splitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=20)
+token_splitter     = TokenTextSplitter(chunk_size=50, chunk_overlap=10)
 
-Deep learning uses neural networks with multiple layers.
-It has achieved breakthrough results in computer vision.
-
-Natural Language Processing enables computers to understand human language.
-"""
-
-# Strategy 1: Character-based splitting
-char_splitter = CharacterTextSplitter(
-    separator="\n\n",
-    chunk_size=100,
-    chunk_overlap=20,
-    length_function=len,
-)
-char_chunks = char_splitter.split_text(sample_text)
-
-# Strategy 2: Recursive splitting (RECOMMENDED)
-recursive_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=100,
-    chunk_overlap=20,
-    length_function=len,
-    separators=["\n\n", "\n", " ", ""],
-)
-recursive_chunks = recursive_splitter.split_text(sample_text)
-
-# Strategy 3: Token-based splitting
-token_splitter = TokenTextSplitter(
-    chunk_size=50,
-    chunk_overlap=10,
-)
-token_chunks = token_splitter.split_text(sample_text)
-
-print("Character-based chunks:", len(char_chunks))
-print("Recursive chunks:", len(recursive_chunks))
-print("Token-based chunks:", len(token_chunks))
+print("Character-based chunks:", len(char_splitter.split_text(SAMPLE_TEXT)))
+print("Recursive chunks:",       len(recursive_splitter.split_text(SAMPLE_TEXT)))
+print("Token-based chunks:",     len(token_splitter.split_text(SAMPLE_TEXT)))
 ```
 
-### 4.3 Optimal Chunking Parameters
+- `TokenTextSplitter` counts OpenAI-style tokens via `tiktoken` — useful when you need hard token budget limits rather than character limits.
+- For most use cases, `RecursiveCharacterTextSplitter` produces the best results because it respects natural text boundaries.
 
-> See: [examples/TextChunkingStrategies/2_OptimalChunkingParameters.py](examples/TextChunkingStrategies/2_OptimalChunkingParameters.py)
+**Run it:**
+```bash
+python "examples/TextChunkingStrategies/1_Chunking.py"
+```
+
+---
+
+### Example 2 — Use-Case-Tuned Chunk Parameters
+
+**File:** `examples/TextChunkingStrategies/2_OptimalChunkingParameters.py`
+
+Demonstrates that optimal `chunk_size` and `chunk_overlap` values depend on the retrieval use case, and provides a factory function with four presets.
 
 ```python
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
 def create_optimized_splitter(use_case: str):
-    """
-    Return optimized splitter based on use case
-    """
     configs = {
-        "general": {
-            "chunk_size": 1000,
-            "chunk_overlap": 200,
-        },
-        "code": {
-            "chunk_size": 800,
-            "chunk_overlap": 100,
-            "separators": ["\n\nclass ", "\n\ndef ", "\n\n", "\n", " "],
-        },
-        "qa": {
-            "chunk_size": 500,
-            "chunk_overlap": 50,
-        },
-        "long_context": {
-            "chunk_size": 2000,
-            "chunk_overlap": 400,
-        }
+        "general":      {"chunk_size": 1000, "chunk_overlap": 200},
+        "code":         {"chunk_size": 800,  "chunk_overlap": 100,
+                         "separators": ["\n\nclass ", "\n\ndef ", "\n\n", "\n", " "]},
+        "qa":           {"chunk_size": 500,  "chunk_overlap": 50},
+        "long_context": {"chunk_size": 2000, "chunk_overlap": 400},
     }
-    
     config = configs.get(use_case, configs["general"])
-    
-    return RecursiveCharacterTextSplitter(
-        chunk_size=config["chunk_size"],
-        chunk_overlap=config["chunk_overlap"],
-        length_function=len,
-        separators=config.get("separators", ["\n\n", "\n", " ", ""]),
-    )
+    return RecursiveCharacterTextSplitter(**config)
 
-# Usage
 splitter = create_optimized_splitter("qa")
 chunks = splitter.split_documents(documents)
-print(f"Created {len(chunks)} chunks")
 ```
 
-### 4.4 Advanced: Semantic Chunking
+- Smaller `chunk_size` (e.g., 500 for Q&A) keeps retrieved passages tightly focused, reducing noise in the context.
+- Larger `chunk_size` (e.g., 2000 for long-context) preserves narrative flow across sections where individual sentences lack enough context.
+- The `"code"` preset uses class and function definition boundaries as primary separators, keeping logical units intact.
 
-> See: [examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py](examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py)
+**Run it:**
+```bash
+python "examples/TextChunkingStrategies/2_OptimalChunkingParameters.py"
+```
+
+---
+
+### Example 3 — Semantic Chunking
+
+**File:** `examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py`
+
+Uses embedding similarity to find natural topic boundaries rather than splitting at fixed character counts.
 
 ```python
-import os
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_openai import AzureOpenAIEmbeddings
 
-# Split based on semantic similarity
 semantic_splitter = SemanticChunker(
     AzureOpenAIEmbeddings(
-        azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+        azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT")
     ),
-    breakpoint_threshold_type="percentile",  # also: "standard_deviation", "interquartile", "gradient"
+    breakpoint_threshold_type="percentile",
     breakpoint_threshold_amount=95,
 )
 
@@ -522,17 +478,25 @@ semantic_chunks = semantic_splitter.split_documents(documents)
 print(f"Semantic chunks: {len(semantic_chunks)}")
 ```
 
-### 4.5 Practical Chunking Example
+- `SemanticChunker` embeds every sentence, then splits where the cosine distance between adjacent sentences exceeds a threshold.
+- `breakpoint_threshold_type="percentile"` with `amount=95` splits at the top 5% of distance jumps — the points where topic changes are sharpest.
+- **Trade-off:** Semantic chunking requires an embeddings API call per sentence, making it slower and costlier than character-based approaches. Use it when chunk coherence is more important than cost.
 
-> See: [examples/TextChunkingStrategies/4_PracticalChunkingExample.py](examples/TextChunkingStrategies/4_PracticalChunkingExample.py)
+**Run it:**
+```bash
+python "examples/TextChunkingStrategies/3_AdvancedSemanticChunking.py"
+```
+
+---
+
+### Example 4 — End-to-End Chunk Pipeline
+
+**File:** `examples/TextChunkingStrategies/4_PracticalChunkingExample.py`
+
+Wraps load → split → inspect into a single `process_documents()` function ready to drop into any RAG pipeline.
 
 ```python
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import TextLoader
-
-
 def process_documents(file_path: str):
-    """Load → split → inspect."""
     loader = TextLoader(file_path, encoding="utf-8")
     documents = loader.load()
     print(f"Loaded {len(documents)} pages")
@@ -540,7 +504,6 @@ def process_documents(file_path: str):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
-        length_function=len,
         separators=["\n\n", "\n", " ", ""],
     )
     chunks = text_splitter.split_documents(documents)
@@ -553,206 +516,293 @@ def process_documents(file_path: str):
         print(f"Metadata: {chunk.metadata}")
 
     return chunks
+```
 
+- Use `.split_documents()` (not `.split_text()`) — it preserves the `Document` metadata (source path, page number) on every resulting chunk, which is essential for source citations in Track 4.
 
-chunks = process_documents("examples/data/TheFrenchRevolution.txt")
+**Run it:**
+```bash
+python "examples/TextChunkingStrategies/4_PracticalChunkingExample.py"
 ```
 
 ---
 
-## 5. Vector Stores & Similarity Search
+## Track 3 — Vector Stores and Similarity Search (Examples 1–2)
 
-> **Examples:** `examples/VectorStores&SimilaritySearch/`
+### Theory
 
-### 5.1 Vector Store Options
+A **vector store** indexes document chunks as dense embedding vectors and serves approximate nearest-neighbor queries at runtime. Given a query, it embeds the question with the same model used during indexing, then returns the `k` chunks whose embeddings are geometrically closest.
 
-| Vector Store | Use Case | Pros | Cons |
-|-------------|----------|------|------|
-| **Chroma** | Development, Small datasets | Easy setup, Free | Not production-scale |
-| **Pinecone** | Production, Large scale | Managed, Fast | Paid service |
-| **Weaviate** | Production, Self-hosted | Feature-rich, Free tier | Complex setup |
-| **FAISS** | Local, Fast prototyping | Very fast, Free | In-memory only |
-| **Qdrant** | Production, Self-hosted | Modern, Efficient | Newer option |
+LangChain uses ChromaDB as the local vector store in these examples. Chroma persists its index to disk, so you only pay the embedding cost once — subsequent queries load the existing store from disk without re-embedding.
 
-### 5.2 Chroma DB Setup (Recommended for Learning)
+**Step-by-step: what happens when you index a document**
 
-> See: [examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py](examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py)
+```
+Raw text chunks
+        ↓  AzureOpenAIEmbeddings
+List of float vectors (one per chunk)
+        ↓  Chroma.from_documents()
+Persistent index on disk (chroma_db/)
+        ↓  vectorstore.as_retriever()
+Retriever ready to answer queries
+```
+
+**Step-by-step: what happens at query time**
+
+```
+User question (string)
+        ↓  AzureOpenAIEmbeddings (same model as ingestion)
+Query vector
+        ↓  cosine similarity against index
+Top-k nearest chunk vectors
+        ↓  look up original text
+List[Document] returned to the RAG chain
+```
+
+**Three search modes compared:**
+
+```
+similarity_search(query, k)
+        ↓  cosine similarity
+Top-k most similar chunks (by embedding distance)
+
+similarity_search_with_score(query, k)
+        ↓  cosine similarity + distance value
+Top-k chunks, each paired with a float score (lower = more similar in Chroma)
+
+max_marginal_relevance_search(query, k, fetch_k, lambda_mult)
+        ↓  relevance + diversity
+k chunks that balance closeness to the query with diversity among results
+```
+
+The `lambda_mult` parameter controls the relevance–diversity tradeoff in MMR:
+- `lambda_mult=1.0` → maximum relevance (identical to similarity search)
+- `lambda_mult=0.0` → maximum diversity (ignores similarity score entirely)
+- `lambda_mult=0.5` → balanced (recommended default)
+
+---
+
+### Example 1 — ChromaDB Setup and Sample Search
+
+**File:** `examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py`
+
+Creates a persistent Chroma vector store from a text file and demonstrates all three search modes.
 
 ```python
-import os
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 
 embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT")
 )
 
 vectorstore = Chroma.from_documents(
     documents=chunks,
     embedding=embeddings,
-    persist_directory="./chroma_db",
+    persist_directory=str(CHROMA_DIR),
     collection_name="the_french_revolution",
 )
 
-doc_count = len(vectorstore.get()["ids"])
-print(f"✓ Created vector store with {doc_count} documents")
-```
+# Similarity search
+results = vectorstore.similarity_search("What caused the French Revolution?", k=3)
 
-### 5.3 Similarity Search
-
-```python
-query = "What caused the French Revolution?"
-results = vectorstore.similarity_search(query, k=3)
-
-print(f"Found {len(results)} relevant documents:\n")
-for i, doc in enumerate(results):
-    print(f"--- Result {i+1} ---")
-    print(f"Content: {doc.page_content[:200]}...")
-    print(f"Metadata: {doc.metadata}\n")
-```
-
-### 5.4 Similarity Search with Scores
-
-```python
-query = "What happened during the Reign of Terror?"
-results_with_scores = vectorstore.similarity_search_with_score(query, k=3)
-
-for doc, score in results_with_scores:
-    print(f"Score: {score:.4f}")
-    print(f"Content: {doc.page_content[:150]}...")
-    print(f"Source: {doc.metadata.get('source', 'Unknown')}\n")
-```
-
-### 5.5 Maximum Marginal Relevance (MMR)
-
-```python
-# MMR: Balances relevance with diversity
-results_mmr = vectorstore.max_marginal_relevance_search(
-    query,
-    k=4,
-    fetch_k=20,
-    lambda_mult=0.5  # 0=max diversity, 1=max relevance
+# With relevance scores
+results_with_scores = vectorstore.similarity_search_with_score(
+    "What happened during the Reign of Terror?", k=3
 )
 
-print(f"MMR returned {len(results_mmr)} diverse results")
+# MMR for diverse results
+results_mmr = vectorstore.max_marginal_relevance_search(
+    "Reign of Terror", k=4, fetch_k=20, lambda_mult=0.5
+)
 ```
 
-### 5.6 Complete Vector Store Example
+- `Chroma.from_documents()` creates a new store and persists it to `CHROMA_DIR` in a single call.
+- On subsequent runs, load the existing store with `Chroma(persist_directory=..., embedding_function=...)` to avoid paying the embedding cost again.
 
-> See: [examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py](examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py)
-
-```python
-import os
-from typing import List
-from dotenv import load_dotenv
-
-from langchain_core.documents import Document
-from langchain_openai import AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-load_dotenv()
-
-
-class DocumentVectorStore:
-    """Manages document vectorization and retrieval."""
-
-    def __init__(self, persist_directory: str = "./chroma_db"):
-        self.persist_directory = persist_directory
-        self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-        )
-        self.vectorstore: Chroma | None = None
-
-    def create_from_documents(self, documents: List[Document]) -> Chroma:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-        )
-        chunks = text_splitter.split_documents(documents)
-
-        self.vectorstore = Chroma.from_documents(
-            documents=chunks,
-            embedding=self.embeddings,
-            persist_directory=self.persist_directory,
-        )
-        print(f"✓ Vector store created with {len(chunks)} chunks")
-        return self.vectorstore
-
-    def load_existing(self) -> Chroma:
-        self.vectorstore = Chroma(
-            persist_directory=self.persist_directory,
-            embedding_function=self.embeddings,
-        )
-        return self.vectorstore
-
-    def search(self, query: str, k: int = 3, method: str = "similarity"):
-        if not self.vectorstore:
-            raise ValueError("Vector store not initialized")
-        if method == "similarity":
-            return self.vectorstore.similarity_search(query, k=k)
-        if method == "mmr":
-            return self.vectorstore.max_marginal_relevance_search(
-                query, k=k, fetch_k=k * 5
-            )
-        if method == "similarity_score":
-            return self.vectorstore.similarity_search_with_score(query, k=k)
-        raise ValueError("Use 'similarity', 'mmr', or 'similarity_score'.")
-
-
-if __name__ == "__main__":
-    loader = TextLoader("examples/data/TheFrenchRevolution.txt", encoding="utf-8")
-    docs = loader.load()
-
-    vs = DocumentVectorStore()
-    vs.create_from_documents(docs)
-
-    results = vs.search("What were the main causes of the French Revolution?", k=3)
-    for i, doc in enumerate(results):
-        print(f"\n--- Result {i+1} ---")
-        print(doc.page_content[:200])
+**Run it:**
+```bash
+python "examples/VectorStores&SimilaritySearch/1_ChromaDBSetup&SampleSearch.py"
 ```
 
 ---
 
-## 6. Building RAG Pipelines
+### Example 2 — DocumentVectorStore Class
 
-> **Examples:** `examples/BuildingRAGPipelines/`
+**File:** `examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py`
 
-### 6.1 Basic RAG Chain
-
-> See: [examples/BuildingRAGPipelines/1_BasicRAGChain.py](examples/BuildingRAGPipelines/1_BasicRAGChain.py)
-
-The legacy `RetrievalQA` class is deprecated. The v1 chain-based replacement (in `langchain-classic`) uses composable building blocks: `create_stuff_documents_chain` for the answer step and `create_retrieval_chain` to wire retrieval into it.
+Wraps Chroma into a reusable `DocumentVectorStore` class with `create_from_documents`, `load_existing`, `search`, and `add_documents` methods.
 
 ```python
-import os
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_core.prompts import ChatPromptTemplate
+class DocumentVectorStore:
+    def __init__(self, persist_directory: str = _CHROMA_DIR):
+        self.embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT")
+        )
+        self.vectorstore: Chroma | None = None
+
+    def create_from_documents(self, documents: List[Document]) -> Chroma:
+        chunks = RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP
+        ).split_documents(documents)
+        self.vectorstore = Chroma.from_documents(
+            documents=chunks, embedding=self.embeddings,
+            persist_directory=self.persist_directory,
+        )
+        return self.vectorstore
+
+    def search(self, query: str, k: int = 3, method: str = "similarity"):
+        if method == "mmr":
+            return self.vectorstore.max_marginal_relevance_search(query, k=k, fetch_k=k*5)
+        return self.vectorstore.similarity_search(query, k=k)
+```
+
+- `method="similarity_score"` returns `(Document, float)` tuples, useful for filtering results below a confidence threshold.
+- `add_documents()` lets you grow an existing index without recreating it from scratch.
+
+**Run it:**
+```bash
+python "examples/VectorStores&SimilaritySearch/2_CompleteVectorStoreExample.py"
+```
+
+---
+
+## Track 4 — Building RAG Pipelines (Examples 1–6)
+
+### Theory
+
+A **RAG chain** connects a retriever to a language model: the retriever fetches relevant context for a given question, and the LLM uses that context to generate a grounded answer.
+
+Without RAG, every LLM answer draws solely from training data:
+
+```
+# Without RAG
+User: What caused the French Revolution?
+AI:   The French Revolution was caused by a variety of factors...  ← generic, possibly hallucinated
+```
+
+With RAG, the answer is anchored to your actual documents:
+
+```
+# With RAG
+User: What caused the French Revolution?
+AI:   According to the document, the main causes were...  ← grounded in retrieved text
+```
+
+#### How a modern RAG pipeline works
+
+The pipeline has four stages:
+
+1. **Ingestion** — documents are loaded, split, embedded, and stored in a vector store (done once, offline).
+2. **Retrieval** — at query time, the question is embedded and the top-k nearest chunks are fetched from the store.
+3. **Augmentation** — retrieved chunks are injected into a prompt template as `{context}`.
+4. **Generation** — the LLM generates an answer conditioned on the retrieved context, not its training data.
+
+```
+User question
+        ↓
+Embed query with the same model used at ingestion
+        ↓
+Retrieve top-k chunks from vector store
+        ↓
+Inject chunks into prompt template as {context}
+        ↓
+LLM generates grounded answer
+        ↓
+Return answer (+ optional source metadata)
+```
+
+#### LCEL RAG chains
+
+The modern way to build RAG chains is with **LCEL (LangChain Expression Language)** — the same pipe-operator syntax used across LangChain 1.x. The fundamental pattern is:
+
+```
+retriever | format_docs → context
+                               ↘
+                                prompt | llm | StrOutputParser
+                               ↗
+RunnablePassthrough → question
+```
+
+`StrOutputParser` extracts the plain text string from the model's `AIMessage` response, so the final output of the chain is a `str` rather than a message object. `RunnablePassthrough` forwards the raw question unchanged into the prompt's `{question}` slot without any transformation.
+
+#### Conversational RAG
+
+Standard RAG is stateless — each question is answered independently. Without conversation memory:
+
+```
+# Stateless RAG
+User: What caused the French Revolution?
+AI:   Financial crisis, social inequality, and weak leadership.
+User: Can you elaborate on the second cause?
+AI:   I'm not sure what you're referring to.   ← no memory of prior answer
+```
+
+Conversational RAG adds a **history-aware retriever** that reformulates follow-up questions as standalone queries before retrieval:
+
+```
+# Conversational RAG
+User: What caused the French Revolution?
+AI:   Financial crisis, social inequality, and weak leadership.
+User: Can you elaborate on the second cause?
+      ↓ history-aware retriever rewrites to:
+      "Elaborate on social inequality as a cause of the French Revolution."
+AI:   Social inequality in 18th-century France...   ← correctly grounded
+```
+
+#### Conversation history
+
+A **conversation history** is a list of `HumanMessage` and `AIMessage` objects representing the full exchange so far. Unlike a black-box memory class, it is a plain Python list — you can inspect, slice, or serialize it at any point.
+
+```python
+chat_history = []
+
+result = rag_chain.invoke({"input": "What caused the Revolution?", "chat_history": chat_history})
+chat_history.extend([
+    HumanMessage(content="What caused the Revolution?"),
+    AIMessage(content=result["answer"]),
+])
+```
+
+For multi-user deployments, maintain a separate `chat_history` list per user session, keyed by a session ID in a dict or database:
+
+```python
+histories = {}
+
+def get_history(session_id: str) -> list:
+    if session_id not in histories:
+        histories[session_id] = []
+    return histories[session_id]
+```
+
+#### RAG chain components reference
+
+| Component | Purpose |
+|-----------|---------|
+| `create_retrieval_chain` | Classic chain: retriever → stuff documents → LLM |
+| `create_stuff_documents_chain` | Formats retrieved docs into a `{context}` string for the prompt |
+| `RunnablePassthrough` | Forwards the raw question unchanged through an LCEL chain |
+| `StrOutputParser` | Extracts the plain text string from a model's `AIMessage` response |
+| `MultiQueryRetriever` | Generates multiple search queries from one question to broaden recall |
+| `create_history_aware_retriever` | Rewrites follow-up questions using chat history before retrieval |
+| `MessagesPlaceholder` | Reserves a slot in the prompt for injected conversation history |
+
+---
+
+### Example 1 — Basic RAG Chain
+
+**File:** `examples/BuildingRAGPipelines/1_BasicRAGChain.py`
+
+The simplest complete RAG pipeline: load → chunk → embed → retrieve → answer.
+
+```python
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-)
-
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings,
-)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 system_prompt = (
     "Use the given context to answer the question. "
     "If you don't know the answer, say you don't know. "
-    "Keep the answer concise.\n\n"
-    "Context: {context}"
+    "Keep the answer concise.\n\nContext: {context}"
 )
 prompt = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
@@ -768,49 +818,27 @@ for doc in result["context"]:
     print(f"- {doc.metadata.get('source', 'Unknown')}")
 ```
 
-### 6.2 Modern RAG with LCEL
+- `result["answer"]` contains the generated response string.
+- `result["context"]` contains the list of retrieved `Document` objects — useful for displaying sources.
 
-> See: [examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py](examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py)
+**Run it:**
+```bash
+python "examples/BuildingRAGPipelines/1_BasicRAGChain.py"
+```
 
-For maximum control, build the chain by hand with LCEL primitives.
+---
+
+### Example 2 — Modern RAG with LCEL
+
+**File:** `examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py`
+
+Rebuilds the RAG chain using the LCEL pipe syntax for a more composable, inspectable structure.
 
 ```python
-import os
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
-
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-)
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings,
-)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-
-template = """Answer the question based only on the following context:
-
-{context}
-
-Question: {question}
-
-Answer: Provide a detailed answer based on the context. If the answer cannot be found
-in the context, say "I cannot find this information in the provided documents."
-"""
-
-prompt = ChatPromptTemplate.from_template(template)
-
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
-
 
 rag_chain = (
     {
@@ -822,38 +850,41 @@ rag_chain = (
     | StrOutputParser()
 )
 
-response = rag_chain.invoke("What were the main causes of the French Revolution?")
+response = rag_chain.invoke("What is machine learning?")
 print(response)
 ```
 
-### 6.3 RAG with Source Citations
+- The dict `{"context": retriever | format_docs, "question": RunnablePassthrough()}` is itself a `Runnable` that fetches context and forwards the question simultaneously before passing both to the prompt.
+- The final output is a plain `str` rather than a dict — simpler for display, though you lose direct access to the source documents that `create_retrieval_chain` preserves in `result["context"]`.
 
-> See: [examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py](examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py)
+**Run it:**
+```bash
+python "examples/BuildingRAGPipelines/2_ModernRAGwithLCEL.py"
+```
+
+---
+
+### Example 3 — RAG with Source Citations
+
+**File:** `examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py`
+
+Extends the LCEL chain with a custom document formatter that injects source path and page number into the context block, instructing the model to cite them in its answer.
 
 ```python
-import os
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
-
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-)
-vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+def format_docs_with_sources(docs):
+    formatted = []
+    for i, doc in enumerate(docs):
+        source = doc.metadata.get("source", "Unknown")
+        page   = doc.metadata.get("page", "N/A")
+        formatted.append(
+            f"[Document {i+1}] (Source: {source}, Page: {page})\n{doc.page_content}"
+        )
+    return "\n\n".join(formatted)
 
 template = """Answer the question based on the following context.
 After your answer, list the sources you used with their page numbers.
 
-Context:
-{context}
-
+Context: {context}
 Question: {question}
 
 Answer format:
@@ -861,104 +892,63 @@ Answer format:
 
 Sources:
 - [Source 1 with page number]
-- [Source 2 with page number]
 """
-
-prompt = ChatPromptTemplate.from_template(template)
-
-
-def format_docs_with_sources(docs):
-    formatted = []
-    for i, doc in enumerate(docs):
-        source = doc.metadata.get("source", "Unknown")
-        page = doc.metadata.get("page", "N/A")
-        formatted.append(
-            f"[Document {i+1}] (Source: {source}, Page: {page})\n{doc.page_content}"
-        )
-    return "\n\n".join(formatted)
-
-
-rag_chain_with_sources = (
-    {
-        "context": retriever | format_docs_with_sources,
-        "question": RunnablePassthrough(),
-    }
-    | prompt
-    | llm
-    | StrOutputParser()
-)
-
-response = rag_chain_with_sources.invoke("Explain the key concepts")
-print(response)
 ```
 
-### 6.4 Multi-Query RAG (Advanced)
+- Metadata preservation from `.split_documents()` (not `.split_text()`) is what makes per-chunk citations possible — the source and page number are carried on every chunk as it flows through the pipeline.
 
-> See: [examples/BuildingRAGPipelines/4_MultiQueryRAG.py](examples/BuildingRAGPipelines/4_MultiQueryRAG.py)
+**Run it:**
+```bash
+python "examples/BuildingRAGPipelines/3_RAGwithSourceCitations.py"
+```
+
+---
+
+### Example 4 — Multi-Query Retrieval
+
+**File:** `examples/BuildingRAGPipelines/4_MultiQueryRAG.py`
+
+Uses `MultiQueryRetriever` to generate several rephrased versions of the user's question, run them all against the vector store, and deduplicate the combined results — broadening recall for complex or ambiguous queries.
 
 ```python
-import os
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-)
-vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 base_retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
 
-# Multi-query retriever generates several search queries from one user query
 multi_query_retriever = MultiQueryRetriever.from_llm(
     retriever=base_retriever,
     llm=llm,
 )
 
+# One question → multiple internal searches → deduplicated results
 unique_docs = multi_query_retriever.invoke(
     "What were the main causes of the French Revolution?"
 )
 print(f"Retrieved {len(unique_docs)} unique documents")
 ```
 
-### 6.5 Conversational RAG (With Memory)
+- The LLM generates alternative phrasings of the query automatically — no manual work required.
+- `unique_docs` is deduplicated, so the same chunk is never returned twice regardless of how many sub-queries matched it.
 
-> See: [examples/BuildingRAGPipelines/5_ConversationalRAG.py](examples/BuildingRAGPipelines/5_ConversationalRAG.py)
+**Run it:**
+```bash
+python "examples/BuildingRAGPipelines/4_MultiQueryRAG.py"
+```
 
-The legacy `ConversationalRetrievalChain` + `ConversationBufferMemory` API is deprecated. The v1 chain-based replacement (in `langchain-classic`) is **`create_history_aware_retriever`**, which rewrites follow-up questions into standalone queries before retrieval. Chat history is kept as a plain list of `HumanMessage`/`AIMessage`.
+---
+
+### Example 5 — Conversational RAG
+
+**File:** `examples/BuildingRAGPipelines/5_ConversationalRAG.py`
+
+Adds conversation memory to RAG using `create_history_aware_retriever`. Follow-up questions that reference prior answers are rewritten into standalone queries before retrieval.
 
 ```python
-import os
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_classic.chains import (
-    create_history_aware_retriever,
-    create_retrieval_chain,
-)
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
 
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-)
-vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
-retriever = vectorstore.as_retriever()
-
-# Step 1 — rewrite the latest question into a standalone query using chat history
 contextualize_q_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "Given a chat history and the latest user question which might reference "
-     "context in the chat history, formulate a standalone question which can be "
-     "understood without the chat history. Do NOT answer the question, just "
-     "reformulate it if needed; otherwise return it as is."),
+    ("system", "Reformulate the question as a standalone query using the chat history. "
+               "Do NOT answer — just reformulate if needed, otherwise return it as is."),
     MessagesPlaceholder("chat_history"),
     ("human", "{input}"),
 ])
@@ -966,79 +956,48 @@ history_aware_retriever = create_history_aware_retriever(
     llm, retriever, contextualize_q_prompt
 )
 
-# Step 2 — answer using retrieved context + chat history
-qa_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are an assistant for question-answering tasks. "
-     "Use the following pieces of retrieved context to answer the question. "
-     "If you don't know the answer, just say that you don't know. "
-     "Keep the answer concise.\n\n"
-     "Context: {context}"),
-    MessagesPlaceholder("chat_history"),
-    ("human", "{input}"),
-])
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-# Multi-turn conversation — chat history is just a list
 chat_history = []
-queries = [
-    "What were the main causes of the French Revolution?",
-    "What were the major events during the Revolution?",   # uses prior context
-    "Can you explain more about the first event?",         # references prior answer
-]
-
-for query in queries:
-    print(f"\nUser: {query}")
+for query in DEMO_QUERIES:
     result = rag_chain.invoke({"input": query, "chat_history": chat_history})
-    answer = result["answer"]
-    print(f"Assistant: {answer}")
     chat_history.extend([
         HumanMessage(content=query),
-        AIMessage(content=answer),
+        AIMessage(content=result["answer"]),
     ])
 ```
 
-### 6.6 Complete Production-Ready RAG System
+- `chat_history` is a plain list of `HumanMessage` / `AIMessage` objects — no special memory class required.
+- The contextualization step fires a secondary LLM call only when history exists, so the first turn has no overhead.
 
-> See: [examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py](examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py)
+**Production tip:** For multi-user deployments, maintain a separate `chat_history` list per `session_id`, keyed in a dict or database.
 
-This pattern uses `RunnableParallel` + `.assign()` so retrieval runs once per query and both the answer and source documents come back in a single pass.
+**Run it:**
+```bash
+python "examples/BuildingRAGPipelines/5_ConversationalRAG.py"
+```
+
+---
+
+### Example 6 — Production-Ready RAG System
+
+**File:** `examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py`
+
+Packages the full RAG stack into a configurable `ProductionRAGSystem` class. Features:
+
+- MMR retrieval with a configurable diversity–relevance tradeoff
+- Streaming output via `StreamingStdOutCallbackHandler`
+- `RunnableParallel` for concurrent source retrieval and answer generation
+- `batch_query()` for processing multiple questions in sequence
 
 ```python
-import os
-from typing import List, Dict, Any
-
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
-from langchain_core.callbacks import StreamingStdOutCallbackHandler
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-from langchain_chroma import Chroma
-
-
 class ProductionRAGSystem:
-    """Production-ready RAG system with best practices."""
-
-    def __init__(
-        self,
-        persist_directory: str = "./chroma_db",
-        temperature: float = 0.0,
-        k: int = 4,
-        streaming: bool = True,
-    ):
-        self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-        )
+    def __init__(self, persist_directory, temperature=0.0, k=4, streaming=True):
         self.llm = AzureChatOpenAI(
             azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
             temperature=temperature,
             streaming=streaming,
             callbacks=[StreamingStdOutCallbackHandler()] if streaming else None,
-        )
-        self.vectorstore = Chroma(
-            persist_directory=persist_directory,
-            embedding_function=self.embeddings,
         )
         self.retriever = self.vectorstore.as_retriever(
             search_type="mmr",
@@ -1046,888 +1005,152 @@ class ProductionRAGSystem:
         )
         self.chain = self._build_chain()
 
-    def _build_chain(self):
-        template = """You are a helpful AI assistant. Answer the question based on the provided context.
-
-Context:
-{context}
-
-Question: {question}
-
-Instructions:
-1. Provide a comprehensive answer based on the context
-2. If the context doesn't contain enough information, say so clearly
-3. Cite specific parts of the context when possible
-4. Be concise but thorough
-
-Answer:"""
-
-        prompt = ChatPromptTemplate.from_template(template)
-
-        def format_docs(docs):
-            return "\n\n".join(
-                f"[Source {i+1}]\n{doc.page_content}"
-                for i, doc in enumerate(docs)
-            )
-
-        answer_chain = prompt | self.llm | StrOutputParser()
-
-        # Retrieve once, then run the answer chain alongside the source docs.
-        return RunnableParallel(
-            {
-                "source_documents": self.retriever,
-                "question": RunnablePassthrough(),
-            }
-        ).assign(
-            answer=lambda x: answer_chain.invoke(
-                {"context": format_docs(x["source_documents"]), "question": x["question"]}
-            )
-        )
-
-    def query(self, question: str) -> Dict[str, Any]:
+    def query(self, question: str) -> dict:
         result = self.chain.invoke(question)
         return {
             "answer": result["answer"],
-            "source_documents": [
-                {"content": doc.page_content[:200] + "...", "metadata": doc.metadata}
-                for doc in result["source_documents"]
-            ],
+            "source_documents": [...],
             "num_sources": len(result["source_documents"]),
         }
+```
 
-    def batch_query(self, questions: List[str]) -> List[Dict[str, Any]]:
-        return [self.query(q) for q in questions]
-
-
-if __name__ == "__main__":
-    rag = ProductionRAGSystem(persist_directory="./chroma_db", k=3)
-    result = rag.query("What is the main topic discussed?")
-    print("\n\nAnswer:", result["answer"])
-    print(f"\nUsed {result['num_sources']} sources")
+**Run it:**
+```bash
+python "examples/BuildingRAGPipelines/6_CompleteProductionReadyRAGSystem.py"
 ```
 
 ---
 
-## 7. Advanced RAG Patterns
+### Capstone — PDF Q&A Chatbot
 
-### 7.1 Retriever Comparison
+**File:** `examples/CompleteRAGImplementation.py`
 
-```python
-import os
-from langchain_chroma import Chroma
-from langchain_openai import AzureOpenAIEmbeddings
+Brings every concept together into a production-quality `PDFChatbot` class. Features:
 
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-)
-vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
-
-# 1. Similarity search
-similarity_retriever = vectorstore.as_retriever(
-    search_type="similarity",
-    search_kwargs={"k": 3},
-)
-
-# 2. MMR (Maximum Marginal Relevance) — diverse results
-mmr_retriever = vectorstore.as_retriever(
-    search_type="mmr",
-    search_kwargs={"k": 3, "fetch_k": 10},
-)
-
-# 3. Similarity with threshold
-threshold_retriever = vectorstore.as_retriever(
-    search_type="similarity_score_threshold",
-    search_kwargs={"score_threshold": 0.7, "k": 3},
-)
-
-query = "causes of the French Revolution"
-
-print("Similarity Search:")
-print(f"Found {len(similarity_retriever.invoke(query))} documents\n")
-
-print("MMR Search (Diverse):")
-print(f"Found {len(mmr_retriever.invoke(query))} documents\n")
-
-print("Threshold Search:")
-print(f"Found {len(threshold_retriever.invoke(query))} documents")
-```
-
-### 7.2 Contextual Compression
+- Multi-threaded PDF ingestion from an entire directory
+- Persistent ChromaDB vector store that skips re-indexing on restart
+- History-aware conversational retrieval with MMR diversity
+- Interactive REPL with `reset` (clear conversation history) and `quit` commands
 
 ```python
-import os
-from langchain_classic.retrievers import ContextualCompressionRetriever
-from langchain_classic.retrievers.document_compressors import LLMChainExtractor
-from langchain_openai import AzureChatOpenAI
-
-base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-compressor = LLMChainExtractor.from_llm(llm)
-
-compression_retriever = ContextualCompressionRetriever(
-    base_compressor=compressor,
-    base_retriever=base_retriever,
-)
-
-compressed_docs = compression_retriever.invoke(
-    "What were the most important events of the Reign of Terror?"
-)
-print(f"Retrieved {len(compressed_docs)} compressed documents")
-for doc in compressed_docs:
-    print(f"\n{doc.page_content}")
-```
-
-### 7.3 Parent Document Retriever
-
-```python
-from langchain_classic.retrievers import ParentDocumentRetriever
-from langchain_core.stores import InMemoryStore
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-store = InMemoryStore()
-
-child_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
-parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-
-parent_retriever = ParentDocumentRetriever(
-    vectorstore=vectorstore,
-    docstore=store,
-    child_splitter=child_splitter,
-    parent_splitter=parent_splitter,
-)
-
-parent_retriever.add_documents(documents)
-
-# Retrieves small chunks for matching but returns the larger parent for context
-docs = parent_retriever.invoke("Who were the key figures of the Revolution?")
-```
-
-### 7.4 Self-Query Retriever
-
-```python
-import os
-from langchain_classic.retrievers.self_query.base import SelfQueryRetriever
-from langchain_classic.chains.query_constructor.base import AttributeInfo
-from langchain_openai import AzureChatOpenAI
-
-metadata_field_info = [
-    AttributeInfo(name="source", description="The source document name", type="string"),
-    AttributeInfo(name="page", description="The page number in the source document", type="integer"),
-]
-
-document_content_description = "Historical documentation about the French Revolution"
-
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-    temperature=0,
-)
-retriever = SelfQueryRetriever.from_llm(
-    llm,
-    vectorstore,
-    document_content_description,
-    metadata_field_info,
-    verbose=True,
-)
-
-# Natural language query that includes a metadata filter
-docs = retriever.invoke("What does the document say about the Reign of Terror on page 5?")
-```
-
-### 7.5 Ensemble Retriever
-
-```python
-from langchain_classic.retrievers import EnsembleRetriever
-from langchain_community.retrievers import BM25Retriever
-
-# Vector retriever (semantic)
-vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-
-# BM25 retriever (keyword)
-bm25_retriever = BM25Retriever.from_documents(documents)
-bm25_retriever.k = 3
-
-ensemble_retriever = EnsembleRetriever(
-    retrievers=[vector_retriever, bm25_retriever],
-    weights=[0.5, 0.5],
-)
-
-docs = ensemble_retriever.invoke("Bastille storming")
-print(f"Ensemble retrieved {len(docs)} documents")
-```
-
----
-
-## 8. Intermediate Project: PDF Q&A Chatbot
-
-> **Full implementation:** [examples/CompleteRAGImplementation.py](examples/CompleteRAGImplementation.py)
-
-### 8.1 Project Overview
-
-**Goal:** Build a chatbot that answers questions about a directory of PDFs.
-
-**Features:**
-- Loads every PDF in a directory
-- Persistent ChromaDB vector store (reused across runs)
-- Conversational memory via history-aware retriever
-- MMR-based retrieval for diverse context
-- Source citations on every answer
-- Interactive REPL with `quit` / `reset` commands
-
-### 8.2 Implementation Sketch
-
-The full ~310-line implementation lives in [examples/CompleteRAGImplementation.py](examples/CompleteRAGImplementation.py). Below is the core wiring — it's the same pattern as §6.5, applied to a directory of PDFs.
-
-```python
-import os
-from pathlib import Path
-from typing import List, Dict, Any
-from dotenv import load_dotenv
-
-from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
-from langchain_chroma import Chroma
-from langchain_core.documents import Document
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_classic.chains import (
-    create_history_aware_retriever,
-    create_retrieval_chain,
-)
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / "keys" / ".env")
-
-
 class PDFChatbot:
-    """Chatbot for answering questions about a directory of PDF documents."""
-
-    def __init__(
-        self,
-        pdf_directory: str,
-        persist_directory: str = "./chroma_db",
-        chunk_size: int = 1000,
-        chunk_overlap: int = 200,
-        k: int = 4,
-    ):
-        self.pdf_directory = pdf_directory
-        self.persist_directory = persist_directory
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.k = k
-
-        self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-        )
-        self.llm = AzureChatOpenAI(
-            azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-            temperature=0,
-        )
-        self.vectorstore: Chroma | None = None
-        self.chain = None
+    def __init__(self, pdf_directory, persist_directory,
+                 chunk_size=1000, chunk_overlap=200, k=4):
+        self.embeddings = AzureOpenAIEmbeddings(...)
+        self.llm = AzureChatOpenAI(...)
         self.chat_history: List[BaseMessage] = []
 
-    def initialize(self) -> None:
-        # 1. Load PDFs
-        loader = DirectoryLoader(
-            self.pdf_directory,
-            glob="**/*.pdf",
-            loader_cls=PyPDFLoader,
-            show_progress=True,
-            use_multithreading=True,
-        )
-        documents = loader.load()
+    def initialize(self):
+        documents = self.load_pdfs()
+        chunks = self.split_documents(documents)
+        self.create_vectorstore(chunks)
+        self.setup_chain()
 
-        # 2. Split into chunks
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-        )
-        chunks = splitter.split_documents(documents)
-
-        # 3. Create or load the vector store
-        if os.path.exists(self.persist_directory):
-            self.vectorstore = Chroma(
-                persist_directory=self.persist_directory,
-                embedding_function=self.embeddings,
-            )
-            if not self.vectorstore.get()["ids"]:
-                self.vectorstore.add_documents(chunks)
-        else:
-            self.vectorstore = Chroma.from_documents(
-                documents=chunks,
-                embedding=self.embeddings,
-                persist_directory=self.persist_directory,
-            )
-
-        # 4. Build the conversational RAG chain (history-aware retriever + QA)
-        retriever = self.vectorstore.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": self.k, "fetch_k": self.k * 3},
-        )
-
-        contextualize_q_prompt = ChatPromptTemplate.from_messages([
-            ("system",
-             "Given a chat history and the latest user question which might reference "
-             "context in the chat history, formulate a standalone question which can be "
-             "understood without the chat history. Do NOT answer the question."),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ])
-        history_aware_retriever = create_history_aware_retriever(
-            self.llm, retriever, contextualize_q_prompt
-        )
-
-        qa_prompt = ChatPromptTemplate.from_messages([
-            ("system",
-             "You are a helpful assistant. Use the retrieved context to answer. "
-             "If you don't know, say \"I cannot find this information in the provided documents.\"\n\n"
-             "Context:\n{context}"),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ])
-        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
-        self.chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-
-    def ask(self, question: str) -> Dict[str, Any]:
+    def ask(self, question: str) -> dict:
         result = self.chain.invoke({
             "input": question,
             "chat_history": self.chat_history,
         })
-        answer = result["answer"]
         self.chat_history.extend([
             HumanMessage(content=question),
-            AIMessage(content=answer),
+            AIMessage(content=result["answer"]),
         ])
-        return {
-            "answer": answer,
-            "sources": [
-                {
-                    "page": doc.metadata.get("page", "N/A"),
-                    "source": doc.metadata.get("source", "Unknown"),
-                }
-                for doc in result["context"]
-            ],
-        }
+        return {"answer": result["answer"], "sources": [...]}
 ```
 
-> **Note:** the `result` returned by `create_retrieval_chain` puts the retrieved docs under `result["context"]` (not `result["source_documents"]` like the legacy chain).
-
-### 8.3 Usage Instructions
-
+**Run it:**
 ```bash
-# 1. Install dependencies (already covered by the top-level Setup)
-pip install -r requirements.txt
-
-# 2. Make sure keys/.env exists with your Azure OpenAI credentials
-#    (see the top-level Setup section)
-
-# 3. The repo ships with examples/data/TheFrenchRevolution.pdf;
-#    drop additional PDFs into examples/data/ if you want.
-
-# 4. Run the chatbot
-python examples/CompleteRAGImplementation.py
+python "examples/CompleteRAGImplementation.py"
 ```
 
-### 8.4 Example Conversation
-
-```
-============================================================
-PDF Q&A CHATBOT
-============================================================
-Ask questions about your PDF documents!
-Type 'quit', 'exit', or 'q' to end the conversation
-Type 'reset' to clear conversation history
-============================================================
-
-You: What were the main causes of the French Revolution?
-
-🤖 Assistant: The main causes were widespread financial crisis driven by
-costly wars and royal extravagance, deep social inequality between the
-estates, food shortages caused by poor harvests, and Enlightenment ideas
-that challenged the legitimacy of absolute monarchy.
-
-📚 Sources:
-   1. TheFrenchRevolution.pdf (Page 1)
-   2. TheFrenchRevolution.pdf (Page 2)
-
-You: What about the Reign of Terror specifically?
-
-🤖 Assistant: The Reign of Terror (1793–1794) was a period in which the
-revolutionary government, dominated by the Committee of Public Safety
-under Robespierre, used mass executions to suppress perceived enemies of
-the Revolution...
-
-📚 Sources:
-   1. TheFrenchRevolution.pdf (Page 4)
-
-You: quit
-
-👋 Goodbye!
-```
+Type a question and press Enter. Type `reset` to clear conversation history, or `quit` to exit.
 
 ---
 
-## 9. Performance Optimization
+## Core Concepts at a Glance
 
-### 9.1 Chunk Size Optimization
-
-```python
-import time
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-def benchmark_chunk_sizes(documents, sizes=[500, 1000, 1500, 2000]):
-    """Test different chunk sizes"""
-    results = {}
-    
-    for size in sizes:
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=size,
-            chunk_overlap=size // 5  # 20% overlap
-        )
-        
-        start = time.time()
-        chunks = splitter.split_documents(documents)
-        elapsed = time.time() - start
-        
-        results[size] = {
-            "num_chunks": len(chunks),
-            "time": elapsed,
-            "avg_chunk_size": sum(len(c.page_content) for c in chunks) / len(chunks)
-        }
-    
-    print("Chunk Size Benchmark:")
-    print(f"{'Size':<10} {'Chunks':<10} {'Time (s)':<12} {'Avg Size':<10}")
-    print("-" * 50)
-    for size, data in results.items():
-        print(f"{size:<10} {data['num_chunks']:<10} {data['time']:<12.3f} {data['avg_chunk_size']:<10.0f}")
-    
-    return results
-
-results = benchmark_chunk_sizes(documents)
-```
-
-### 9.2 Embedding Model Comparison
-
-> Note: HuggingFace embeddings require `pip install sentence-transformers` (not in `requirements.txt` by default).
-
-```python
-import os
-import time
-from langchain_openai import AzureOpenAIEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
-
-
-def compare_embedding_models(texts):
-    """Compare different embedding models on the same input."""
-    models = {
-        "Azure OpenAI": AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"),
-        ),
-        "HuggingFace (MiniLM)": HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-        ),
-        "HuggingFace (MPNet)": HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-mpnet-base-v2",
-        ),
-    }
-
-    results = {}
-    for name, model in models.items():
-        start = time.time()
-        embeddings = model.embed_documents(texts[:100])
-        elapsed = time.time() - start
-        results[name] = {
-            "time": elapsed,
-            "dimension": len(embeddings[0]),
-            "cost": "Paid" if "Azure" in name else "Free (local)",
-        }
-
-    print("\nEmbedding Model Comparison:")
-    print(f"{'Model':<30} {'Time (s)':<12} {'Dimensions':<12} {'Cost':<14}")
-    print("-" * 70)
-    for name, data in results.items():
-        print(f"{name:<30} {data['time']:<12.3f} {data['dimension']:<12} {data['cost']:<14}")
-
-    return results
-
-
-sample_texts = [chunk.page_content for chunk in chunks[:100]]
-compare_embedding_models(sample_texts)
-```
-
-### 9.3 Retrieval Optimization
-
-```python
-def optimize_retrieval_params(vectorstore, test_queries, k_values=(3, 5, 7, 10)):
-    """Test different k values for retrieval."""
-    print("\nRetrieval Parameter Optimization:")
-    print(f"{'k Value':<10} {'Avg Docs':<12} {'Avg Relevance':<15}")
-    print("-" * 40)
-
-    for k in k_values:
-        retriever = vectorstore.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={"k": k, "score_threshold": 0.5},
-        )
-
-        total_docs = 0
-        total_relevance = 0
-
-        for query in test_queries:
-            docs = retriever.invoke(query)
-            total_docs += len(docs)
-            total_relevance += len(docs) * 0.8
-
-        avg_docs = total_docs / len(test_queries)
-        avg_relevance = total_relevance / len(test_queries)
-
-        print(f"{k:<10} {avg_docs:<12.1f} {avg_relevance:<15.2f}")
-
-
-test_queries = [
-    "What were the main causes of the French Revolution?",
-    "What happened during the Reign of Terror?",
-    "Who were the major figures of the Revolution?",
-]
-optimize_retrieval_params(vectorstore, test_queries)
-```
-
-### 9.4 Caching Strategies
-
-```python
-import os
-import time
-from langchain_core.caches import InMemoryCache
-from langchain_core.globals import set_llm_cache
-from langchain_openai import AzureChatOpenAI
-
-# Enable an LLM-level cache shared across all chat models
-set_llm_cache(InMemoryCache())
-
-llm = AzureChatOpenAI(
-    azure_deployment=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-)
-
-# First call — hits the model
-start = time.time()
-llm.invoke("What is 2+2?")
-time1 = time.time() - start
-
-# Second call — served from the cache
-start = time.time()
-llm.invoke("What is 2+2?")
-time2 = time.time() - start
-
-print(f"First call: {time1:.3f}s")
-print(f"Cached call: {time2:.3f}s")
-print(f"Speedup: {time1/time2:.1f}x")
-```
-
-### 9.5 Batch Processing
-
-```python
-def batch_process_queries(rag_chain, queries, batch_size=5):
-    """Process queries in batches for efficiency"""
-    results = []
-    
-    for i in range(0, len(queries), batch_size):
-        batch = queries[i:i+batch_size]
-        print(f"Processing batch {i//batch_size + 1}...")
-        batch_results = rag_chain.batch(batch)
-        results.extend(batch_results)
-    
-    return results
-
-queries = [
-    "What is ML?",
-    "Explain DL",
-    "What is NLP?",
-    "Define AI",
-    "What is computer vision?"
-]
-results = batch_process_queries(rag_chain, queries, batch_size=2)
-```
+| Concept | What It Does | Where to Start |
+|---------|-------------|----------------|
+| **Document Loaders** | Ingest text, PDFs, and web pages into `Document` objects | Track 1, Example 1 |
+| **Metadata** | Source path and page number carried on every `Document` chunk | Track 1, Example 2 |
+| **Text Splitters** | Divide documents into retrieval-friendly chunks | Track 2, Example 1 |
+| **Embeddings** | Convert text to dense vectors for semantic search | Track 3, Example 1 |
+| **ChromaDB** | Local persistent vector store for indexing and retrieval | Track 3, Example 1 |
+| **MMR Search** | Retrieves diverse, non-redundant results from a vector store | Track 3, Example 1 |
+| **RAG Chain** | Retriever + prompt + LLM assembled into a grounded Q&A pipeline | Track 4, Example 1 |
+| **LCEL RAG** | Pipe-style RAG chain composition using the `\|` operator | Track 4, Example 2 |
+| **Source Citations** | Per-chunk metadata surfaced as document references in answers | Track 4, Example 3 |
+| **MultiQueryRetriever** | Broadens recall by generating multiple query variants automatically | Track 4, Example 4 |
+| **Conversational RAG** | History-aware retrieval that handles follow-up questions correctly | Track 4, Examples 5–6 |
 
 ---
 
-## 10. Exercises & Challenges
+## Navigating the Examples
 
-### Exercise 1: Alternative Text Splitters
+**If you're brand new to RAG:** Start at Track 1, Example 1 and work through the tracks in order — each script is self-contained and introduces exactly one new concept.
 
-**Task:** Implement and compare three different text splitters.
+**If you know the loading and chunking basics and want to build your first pipeline:** Jump to Track 4, Example 1 for the classic retrieval chain, then try Example 2 for the cleaner LCEL version.
 
-```python
-from langchain_text_splitters import (
-    CharacterTextSplitter,
-    RecursiveCharacterTextSplitter,
-    TokenTextSplitter,
-)
+**If you need source citations or conversational follow-ups:** Go directly to Example 3 for citations and Example 5 for history-aware retrieval — both extend the base LCEL chain with minimal additions.
 
-# Your code here:
-# 1. Load a document (e.g. examples/data/TheFrenchRevolution.txt)
-# 2. Split using three different splitters
-# 3. Compare the number and quality of chunks
-# 4. Determine which is best for your use case
-```
+**If you want a production reference:** Go straight to `examples/CompleteRAGImplementation.py`. It combines everything — multi-format ingestion, persistent indexing, MMR retrieval, conversational memory, and error handling — into a single deployable chatbot class.
 
-> **Optional:** for a fourth splitter, install spaCy (`pip install spacy && python -m spacy download en_core_web_sm`) and try `SpacyTextSplitter` from `langchain_text_splitters`.
-
-**Expected Output:**
-- Comparison table showing chunks created by each splitter
-- Analysis of which splitter preserves semantic meaning best
-
----
-
-### Exercise 2: Custom Metadata
-
-**Task:** Add custom metadata to documents for better filtering
-
-```python
-from langchain_community.document_loaders import PyPDFLoader
-
-def load_with_custom_metadata(file_path, category, author):
-    """Load document and add custom metadata"""
-    # Your implementation here
-    pass
-
-docs = load_with_custom_metadata("paper.pdf", category="research", author="John Doe")
-```
-
----
-
-### Exercise 3: Hybrid Search
-
-**Task:** Implement a hybrid retriever combining semantic and keyword search
-
-```python
-from langchain_classic.retrievers import EnsembleRetriever
-from langchain_community.retrievers import BM25Retriever
-
-def create_hybrid_retriever(documents, vector_weight=0.5):
-    """
-    Create hybrid retriever
-    
-    Args:
-        documents: List of documents
-        vector_weight: Weight for vector search (0-1)
-    Returns:
-        EnsembleRetriever
-    """
-    # Your implementation here
-    pass
-```
-
----
-
-### Exercise 4: Multi-Document Types
-
-**Task:** Build a RAG system that handles PDFs, Word docs, and web pages
-
-```python
-def load_multi_format_documents(directory):
-    """Load documents of different formats (PDF, DOCX, TXT, MD)"""
-    # Your implementation here
-    pass
-```
-
----
-
-### Exercise 5: Source Citation Enhancement
-
-**Task:** Enhance the chatbot to provide inline citations
-
-```python
-def format_answer_with_citations(answer, sources):
-    """
-    Format answer with [1], [2] style citations
-    
-    Example output:
-    "Machine learning is a subset of AI [1]. It involves 
-    training models on data [2]."
-    """
-    # Your implementation here
-    pass
-```
-
----
-
-### Exercise 6: Evaluation Metrics
-
-**Task:** Implement evaluation metrics for your RAG system
-
-```python
-def evaluate_rag_system(rag_chain, test_set):
-    """
-    Evaluate RAG performance
-    
-    Metrics: Answer relevance, Faithfulness, Context precision, Context recall
-    """
-    # Your implementation here
-    pass
-
-test_set = [
-    ("What were the main causes of the French Revolution?", "Financial crisis, social inequality..."),
-    ("Who was Robespierre?", "A leader of the Jacobins during the Reign of Terror..."),
-]
-metrics = evaluate_rag_system(rag_chain, test_set)
-```
-
----
-
-### Challenge 1: Multi-language Support
-
-Extend the chatbot to detect query language, use appropriate embeddings, and generate answers in the query language.
-
-### Challenge 2: Streaming Responses
-
-Implement streaming responses using `StreamingStdOutCallbackHandler` for better UX.
-
-### Challenge 3: Query Expansion
-
-Generate expanded/alternative queries for better retrieval coverage.
-
-### Challenge 4: Document Upload API
-
-Create a FastAPI endpoint for uploading documents and querying the RAG system.
-
-### Challenge 5: Advanced Filtering
-
-Implement document filtering by date range, categories, and minimum relevance score.
-
----
-
-## 11. Troubleshooting (macOS)
-
-### Azure OpenAI Errors
-
-**`openai.NotFoundError: The API deployment for this resource does not exist`**
-- Cause: `AZURE_OPENAI_CHAT_DEPLOYMENT` or `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT` doesn't match a deployment in your Azure resource. The variable holds the **deployment name** you set in Azure, not the underlying model name.
-- Fix: Open the Azure AI Studio / portal, copy the deployment names for your chat + embeddings models, and update `keys/.env`.
-
-**`openai.AuthenticationError: Incorrect API key`**
-- Cause: `AZURE_OPENAI_API_KEY` is wrong or copy-pasted with whitespace.
-- Fix: Re-copy the key from Azure portal → Keys and Endpoint.
-
-**`openai.BadRequestError` mentioning an unsupported API version**
-- Cause: `OPENAI_API_VERSION` doesn't support the feature/model you're using.
-- Fix: Use a recent version such as `2024-10-21`.
-
-**`KeyError` for `AZURE_OPENAI_*` variables**
-- Cause: `keys/.env` not found, or `load_dotenv()` ran before the file existed. Every example resolves the path as `… / "keys" / ".env"` — run scripts from the project root or check the resolved path matches.
-
-### SSL Certificate Errors
-
-If you encounter `[SSL: CERTIFICATE_VERIFY_FAILED]` errors when loading web URLs or using APIs:
-
-**1. Confirm your Python build:**
-
+**Running any example:**
 ```bash
-source myenv/bin/activate
-python -c "import sys,ssl; print(sys.executable); print(ssl.OPENSSL_VERSION)"
+python "examples/<track-folder>/<filename>.py"
 ```
 
-**2. Run the certificate installer (Python.org installs):**
+All examples that use embeddings or the LLM load credentials from `keys/.env` automatically.
 
-```bash
-open "/Applications/Python 3.11/Install Certificates.command"
+---
+
+## Retrieval Strategy Comparison
+
+| Strategy | How It Works | Best For | Example |
+|----------|-------------|----------|---------|
+| **Similarity Search** | Returns top-k chunks by cosine similarity | Straightforward factual queries | Track 3, Ex 1 |
+| **Similarity with Scores** | Same as above, plus distance values for debugging | Evaluating retrieval quality | Track 3, Ex 1 |
+| **MMR** | Balances relevance and diversity across results | Broad questions where redundancy is a problem | Track 3, Ex 1 |
+| **Multi-Query** | Generates multiple phrasings, deduplicates results | Ambiguous or multi-faceted questions | Track 4, Ex 4 |
+| **History-Aware** | Rewrites follow-ups as standalone queries before retrieval | Multi-turn conversational Q&A | Track 4, Ex 5–6 |
+
+---
+
+## Migrating from Legacy APIs
+
+This repository targets LangChain 1.x. If you have existing code written against LangChain 0.x, the two most common patterns have moved:
+
+### Old approach (`ConversationBufferMemory` + `ConversationalRetrievalChain`)
+
+```python
+from langchain.memory import ConversationBufferMemory
+
+memory = ConversationBufferMemory(return_messages=True)
+chain = ConversationalRetrievalChain.from_llm(llm, retriever, memory=memory)
+result = chain({"question": "What caused the Revolution?"})
 ```
 
-**3. Upgrade certifi inside your venv:**
+### New approach (explicit `chat_history` list)
 
-```bash
-pip install --upgrade pip certifi
+```python
+from langchain_core.messages import HumanMessage, AIMessage
+
+chat_history = []
+result = rag_chain.invoke({"input": "What caused the Revolution?", "chat_history": chat_history})
+chat_history.extend([HumanMessage(content=query), AIMessage(content=result["answer"])])
 ```
 
-**4. Force Python/urllib to use the certifi bundle:**
-
-```bash
-export SSL_CERT_FILE="$(python -c 'import certifi; print(certifi.where())')"
-export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
-```
-
-**5. Verify HTTPS trust works:**
-
-```bash
-python -c "import urllib.request; print(urllib.request.urlopen('https://github.com').status)"
-```
-
-To persist this across sessions, add the two `export` lines to your shell profile (`~/.zshrc`) or to the venv's `activate` script.
-
-### libmagic Warning
-
-If you see `libmagic is unavailable but assists in filetype detection.`:
-- This is a **warning only**, not an error — your script still works.
-- The `Unstructured` library uses `libmagic` for file type detection; without it, detection may be less accurate.
-
-**To suppress the warning:**
-
-```bash
-brew install libmagic
-pip install python-magic
-```
+The new approach makes history management explicit and testable — there is no hidden state inside a memory object. `create_history_aware_retriever` replaces `ConversationalRetrievalChain` entirely, and the same `chat_history` list works with any LCEL-based retrieval chain.
 
 ---
 
 ## Additional Resources
 
-### Official Documentation
-- [LangChain RAG Tutorial](https://docs.langchain.com/oss/python/langchain/retrieval)
-- [LangChain Concepts](https://docs.langchain.com/oss/python/langchain/overview)
-- [Vector Stores](https://docs.langchain.com/oss/python/integrations/vectorstores)
-- [Retrievers](https://docs.langchain.com/oss/python/integrations/retrievers)
-
-### Best Practices
-1. **Chunking:** Start with 1000 chars, 200 overlap
-2. **Retrieval:** Use k=3-5 for most queries
-3. **Embeddings:** Azure OpenAI / OpenAI for quality, HuggingFace `sentence-transformers` for cost-free local
-4. **Vector Store:** Chroma for dev, Pinecone / Weaviate / Qdrant for production
-5. **Prompt Engineering:** Always instruct the model to cite sources and refuse when context is insufficient
-6. **Modern APIs:** Prefer `create_retrieval_chain` + `create_history_aware_retriever` over the deprecated `RetrievalQA` / `ConversationalRetrievalChain`
-
-### Common Pitfalls
-- ❌ Chunks too large → Poor retrieval
-- ❌ No overlap → Lost context between chunks
-- ❌ k too low → Missing relevant info
-- ❌ k too high → Noise in context
-- ❌ No source citation → Hard to verify answers
-
-### Performance Tips
-- Use caching for repeated queries
-- Batch process when possible
-- Choose appropriate embedding dimensions
-- Monitor token usage and costs
-- Implement error handling and retries
-
----
-
-## Next Steps
-
-After completing this guide, explore:
-
-1. **Advanced RAG Patterns** — RAPTOR, Graph RAG, HyDE (Hypothetical Document Embeddings)
-2. **Production Considerations** — Monitoring, logging, cost optimization, scaling, security
-3. **Specialized RAG** — Code documentation, legal docs, medical literature, customer support
-4. **Evaluation & Testing** — RAGAS framework, human evaluation, A/B testing
-
----
-
-## Conclusion
-
-You've now learned:
-- ✅ RAG fundamentals and architecture
-- ✅ Document loading and processing
-- ✅ Text chunking strategies
-- ✅ Vector embeddings and similarity search
-- ✅ Building production-ready RAG pipelines
-- ✅ Advanced retrieval patterns
-- ✅ Performance optimization
-
-**Keep practicing and experimenting!** RAG is a rapidly evolving field, and hands-on experience is the best way to master it.
+- [LangChain 1.x RAG Tutorial](https://python.langchain.com/docs/tutorials/rag/)
+- [LangChain Core Concepts Reference](https://python.langchain.com/docs/concepts/)
+- [ChromaDB Documentation](https://docs.trychroma.com/)
+- [Azure OpenAI Service Documentation](https://learn.microsoft.com/en-us/azure/ai-services/openai/)
+- [LangChain Community Discord](https://discord.gg/langchain)
 
 ---
 
